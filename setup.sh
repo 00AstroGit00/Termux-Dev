@@ -105,6 +105,7 @@ verify_all() {
     check_cmd "APK Signer" apksigner
     check_cmd "DEX Compiler (d8)" d8
     check_cmd "SDK Manager" sdkmanager
+    check_cmd "Android CLI" android
 
     printf '\n'
 }

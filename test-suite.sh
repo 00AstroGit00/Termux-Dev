@@ -330,6 +330,18 @@ else
     test_fail "NDK Clang not executable at $NDK_CLANG"
 fi
 
+test_start "Google Android CLI (android) operational execution"
+if command -v android >/dev/null 2>&1; then
+    AND_OUT="$(android --version 2>&1 | head -n 1 || true)"
+    if [[ -n "$AND_OUT" ]]; then
+        test_pass "Android CLI operational: $AND_OUT"
+    else
+        test_fail "android --version returned empty output"
+    fi
+else
+    test_fail "android executable not found on PATH"
+fi
+
 # -------------------------------------------------------------
 # Summary
 # -------------------------------------------------------------

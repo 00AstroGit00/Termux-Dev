@@ -33,6 +33,7 @@ The project manages 5 primary AI coding assistants:
 - **SDK Path**: `$PREFIX/opt/android-sdk` (build-tools 36.1.0, cmdline-tools 19.0, platforms android-36).
 - **NDK Path**: `$PREFIX/opt/android-sdk/ndk/29.0.14206865` with LLVM Clang 21.0.0.
 - **Java**: OpenJDK 21 LTS (`$PREFIX/lib/jvm/java-21-openjdk`).
+- **Android CLI**: Official Google `android` CLI tool at `~/.local/bin/android` patched via termux-glibc.
 - **Environment**: Configured in `~/.android-env` and loaded by `~/.bashrc` and `~/.zshrc`.
 - **Gradle Properties**:
   ```properties
@@ -51,7 +52,7 @@ The project manages 5 primary AI coding assistants:
 
 ## 6. Verification & Testing
 - Run `bash setup.sh --verify` to inspect all tools across System, Compilers, Node.js, AI CLIs, and Android toolchains.
-- Run `bash test-suite.sh` to execute the full 21-point stress and verification test suite (including functional APK, DEX, and NDK Clang synthesis).
+- Run `bash test-suite.sh` to execute the full 22-point stress and verification test suite (including functional APK, DEX, and NDK Clang synthesis).
 
 ## 7. Antigravity Skills & Customizations
 - **`termux-suite`**: General management, verification, lock clearance, and troubleshooting.

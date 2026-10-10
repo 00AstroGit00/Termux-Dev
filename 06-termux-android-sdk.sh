@@ -144,6 +144,35 @@ if [[ -d "$NDK_BIN" ]]; then
 fi
 
 # -----------------------------
+# 5. Google Android CLI (android)
+# -----------------------------
+info "Configuring Google Android CLI tool..."
+mkdir -p "$HOME/.local/bin" "$HOME/Android"
+ln -sfn "$ANDROID_HOME" "$HOME/Android/Sdk"
+
+ANDROID_CLI_BIN="$HOME/.android/bin/android-cli"
+if [[ ! -f "$ANDROID_CLI_BIN" ]]; then
+    info "Downloading Google Android CLI for ARM64..."
+    TMP_DL="${TMPDIR:-$PREFIX/tmp}/android_dl_$$"
+    if curl -fsSL "https://dl.google.com/android/cli/latest/linux_arm64/android" -o "$TMP_DL"; then
+        chmod +x "$TMP_DL"
+        # First execution self-extracts payload to ~/.android/bin/android-cli
+        grun "$TMP_DL" --help >/dev/null 2>&1 || true
+        rm -f "$TMP_DL"
+    fi
+fi
+
+if [[ -f "$ANDROID_CLI_BIN" && -f "$PREFIX/glibc/lib/ld-linux-aarch64.so.1" ]]; then
+    if command -v patchelf >/dev/null 2>&1; then
+        patchelf --set-interpreter "$PREFIX/glibc/lib/ld-linux-aarch64.so.1" \
+                 --set-rpath "$PREFIX/glibc/lib" \
+                 "$ANDROID_CLI_BIN" 2>/dev/null || true
+    fi
+    ln -sf "$ANDROID_CLI_BIN" "$HOME/.local/bin/android"
+    success "Google Android CLI configured at $HOME/.local/bin/android."
+fi
+
+# -----------------------------
 # 5. Environment & Shell Setup
 # -----------------------------
 info "Configuring environment files (~/.android-env and ~/.gradle/gradle.properties)..."
@@ -211,6 +240,7 @@ if [[ -x "$NDK_BIN/clang" ]]; then
 else
     warn "NDK Clang missing at $NDK_BIN/clang"
 fi
+command -v android >/dev/null 2>&1 && success "Android CLI: $(android --version 2>&1 | head -n 1)" || warn "Android CLI missing"
 
 printf '\n'
 success "Stage 06: Android SDK, NDK & Development Toolchain setup complete!"

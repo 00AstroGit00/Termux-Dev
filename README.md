@@ -171,7 +171,7 @@ You can also run specific tasks directly without the TUI:
 ./setup.sh --ai-env      # Stage 05: Setup private ~/.ai-env template
 ./setup.sh --android     # Stage 06: Android SDK, NDK & TermuxVoid setup
 ./setup.sh --verify      # Inspect status of all installed tools
-./setup.sh --test        # Run ruthless 21-point stress & verification suite
+./setup.sh --test        # Run ruthless 22-point stress & verification suite
 ./setup.sh --clean       # Remove temporary locks and cache files
 ./setup.sh --help        # Display usage information
 ```
@@ -271,6 +271,20 @@ Supported NDK cross-compilation targets:
 - `i686-linux-android` (x86)
 - `riscv64-linux-android` (RISC-V 64)
 
+### Official Google Android CLI (`android`)
+
+The workstation integrates Google's official Android CLI (`android`) bridged for ARM64:
+- **Binary Location**: `~/.local/bin/android` (bridged to `~/.android/bin/android-cli` via `termux-glibc` and `patchelf`).
+- **Official Documentation Search & Fetch**: Instant offline-indexed search across 5,300+ Google Android developer documentation guides:
+  ```bash
+  android docs search "Activity lifecycle"
+  android docs fetch "kb://android/guide/topics/manifest/activity-element"
+  ```
+- **CLI Commands**:
+  - `android info`: Report active Android SDK and environment parameters.
+  - `android create`: Generate Android projects from official Google templates.
+  - `android describe`: Analyze project targets and artifacts.
+
 ---
 
 ## 🤖 AI Assistant Hub
@@ -289,7 +303,7 @@ The suite packages and maintains 5 leading terminal AI coding assistants:
 
 ## 🧪 Automated Verification & Stress Test Suite
 
-Execute the full 21-point verification suite at any time:
+Execute the full 22-point verification suite at any time:
 
 ```bash
 bash test-suite.sh
@@ -325,9 +339,10 @@ termux-suite --test
 ▶ [TEST] Android NDK LLVM Clang compiler execution ... PASS (Clang 21.0.0)
 ▶ [TEST] AAPT2 & d8 minimal APK and DEX synthesis ... PASS
 ▶ [TEST] Android NDK native C compilation (ARM64) ... PASS
+▶ [TEST] Google Android CLI (android) operational execution ... PASS (1.0.16500706)
 
 === Test Suite Results ===
-  Passed:   21
+  Passed:   22
   Warnings: 0
   Failed:   0
 
@@ -399,7 +414,7 @@ Termux-Dev/
 ├── 06-termux-android-sdk.sh    # Stage 06: Android SDK, NDK, TermuxVoid, Java
 ├── setup.sh                    # Master orchestrator (TUI & CLI interface)
 ├── install.sh                  # One-line curl bootstrap installer
-├── test-suite.sh               # Ruthless 21-point stress & verification suite
+├── test-suite.sh               # Ruthless 22-point stress & verification suite
 ├── AGENTS.md                   # Antigravity workspace rules & guidelines
 ├── LICENSE                     # Apache 2.0 Open Source License
 ├── .shellcheckrc               # ShellCheck linting configuration
