@@ -1,108 +1,404 @@
-# Termux Developer & AI Suite (ARM64 / aarch64)
+# 🚀 Termux Developer & AI Suite (ARM64 / aarch64)
 
-An enterprise-grade, modular, and hardened developer environment bootstrap and AI CLI suite for Termux on Android ARM64 (`aarch64`).
+[![Platform](https://img.shields.io/badge/Platform-Termux%20%7C%20Android-green.svg)](https://termux.dev)
+[![Architecture](https://img.shields.io/badge/Arch-ARM64%20%2F%20aarch64-blue.svg)](https://developer.arm.com)
+[![Java](https://img.shields.io/badge/Java-OpenJDK%2021%20LTS-orange.svg)](https://openjdk.org)
+[![Gradle](https://img.shields.io/badge/Gradle-9.8.1-02303A.svg)](https://gradle.org)
+[![Android SDK](https://img.shields.io/badge/Android%20SDK-API%2036-3DDC84.svg)](https://developer.android.com/studio)
+[![Android NDK](https://img.shields.io/badge/Android%20NDK-29.0%20(Clang%2021)-brightgreen.svg)](https://developer.android.com/ndk)
+[![Node.js](https://img.shields.io/badge/Node.js-24%20LTS-339933.svg)](https://nodejs.org)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 
----
-
-## Overview
-
-This repository provides an automated, modular, and idempotent provisioning framework designed to turn a stock Termux installation into a full-stack mobile developer workstation equipped with native compilers, modern runtimes, Android SDK/NDK toolchains, and leading AI terminal coding assistants.
-
-### Key Architecture Highlights
-- **Architecture**: Exclusively optimized for native ARM64 / `aarch64`.
-- **Concurrency Protection**: Kernel-managed `flock` file locking ensures safe, non-conflicting stage execution without stale lock risks.
-- **Node.js Isolation**: Keeps Termux's system packages intact by installing all global JavaScript tooling under `~/.npm-global`.
-- **Shebang Healing**: Automatic Termux shebang normalization (`termux-fix-shebang`) for all global binaries and SDK tools.
-- **Full Android Toolchain**: Native Android SDK (36.1.0), NDK (29.0.14206865 LLVM Clang), OpenJDK 21 LTS, Gradle 9.x, and TermuxVoid repository integration (`tvpkg`).
-- **AI CLI Suite**: Out-of-the-box integration for 5 major AI coding agents.
+An enterprise-grade, modular, and self-healing developer workstation provisioning suite and AI coding assistant hub designed exclusively for **Termux on Android ARM64 (`aarch64`)**.
 
 ---
 
-## Modular Stages
+## 📑 Table of Contents
 
-| Stage Script | Component | Description |
-| :--- | :--- | :--- |
-| **`01-termux-base.sh`** | Base System & Repos | Repositories (main, x11, root, tur), core utilities, Zsh with plugins, SSH daemon |
-| **`02-termux-essentials.sh`** | Developer Toolchains | Clang 21, Make, CMake, Python 3.14, Rust 1.99, Go, databases, media & network tools |
-| **`03-termux-node-toolchain.sh`** | JavaScript Runtimes | Node.js 24 LTS, npm 11, Yarn, pnpm (pinned 10.x line for native ARM64 compatibility) |
-| **`04-termux-ai-cli.sh`** | AI Assistant Suite | Google Antigravity (`agy`), OpenCode (`opencode`), OpenAI Codex (`codex`), Google Gemini (`gemini`), GitHub Copilot (`copilot`) |
-| **`05-ai-env.sh`** | Credentials & Secrets | Secure `~/.ai-env` configuration template (mode `0600`) loaded by Bash and Zsh |
-| **`06-termux-android-sdk.sh`** | Android SDK & NDK | TermuxVoid repo, Android SDK 36.1.0, NDK 29.0, OpenJDK 21, Gradle, global `aapt2` overrides |
+- [Overview](#-overview)
+- [Key Features](#-key-features)
+- [Architecture & Design Principles](#-architecture--design-principles)
+- [Quick Start](#-quick-start)
+  - [Remote One-Liner Bootstrap](#1-remote-one-liner-bootstrap)
+  - [Interactive TUI Launcher](#2-interactive-tui-launcher)
+  - [Command-Line Options](#3-command-line-options)
+- [Modular Provisioning Stages](#-modular-provisioning-stages)
+  - [Stage 01: Base System, Repositories & Zsh](#stage-01-base-system-repositories--zsh-01-termux-basesh)
+  - [Stage 02: Essentials & Developer Toolchains](#stage-02-essentials--developer-toolchains-02-termux-essentialssh)
+  - [Stage 03: Node.js & Package Managers](#stage-03-nodejs--package-managers-03-termux-node-toolchainsh)
+  - [Stage 04: AI Coding Assistant Suite](#stage-04-ai-coding-assistant-suite-04-termux-ai-clish)
+  - [Stage 05: Private AI Environment & Credentials](#stage-05-private-ai-environment--credentials-05-ai-envsh)
+  - [Stage 06: Android SDK, NDK & TermuxVoid](#stage-06-android-sdk-ndk--termuxvoid-06-termux-android-sdksh)
+- [Android App Development On-Device](#-android-app-development-on-device)
+  - [Global Gradle Configuration](#global-gradle-configuration)
+  - [Native NDK C/C++ Compilation](#native-ndk-cc-compilation)
+- [AI Assistant Hub](#-ai-assistant-hub)
+- [Automated Verification & Stress Test Suite](#-automated-verification--stress-test-suite)
+- [Google Antigravity Integration](#-google-antigravity-integration)
+- [Troubleshooting & FAQ](#-troubleshooting--faq)
+- [Repository Structure](#-repository-structure)
 
 ---
 
-## Quick Start
+## 🌟 Overview
 
-### 1. Single Command Interactive TUI Launch
-Launch the interactive TUI directly from anywhere in your terminal:
-```bash
-termux-suite
-# or quick alias:
-tsuite
+Stock Termux is lightweight, but turning it into a complete, professional software development machine capable of building modern Android applications, compiling native C/C++ code, running LTS Node.js engines, and driving terminal AI assistants typically requires overcoming severe platform hurdles:
+1. **Android Bionic libc vs. Standard GLIBC**: Linux binaries compiled against GNU libc crash immediately on Termux unless bridged.
+2. **Arch Incompatibilities in Gradle**: Google’s Gradle build tools default to downloading x86_64 host binaries for `aapt2`, breaking on ARM64 phones.
+3. **Shebang Mismatches**: Standard Linux scripts expect `/usr/bin/env` or `/bin/bash` which do not exist in Termux without prefix translation.
+4. **Toolchain Pollution**: Installing global npm packages into system root risks corrupting Termux package indexes.
+
+**Termux-Dev** solves every one of these challenges in a clean, modular, and 100% idempotent framework.
+
+---
+
+## ⚡ Key Features
+
+- **🎮 Dual-Mode UI**: Features both a full-screen interactive **`dialog` TUI** with arrow-key navigation and a responsive ANSI terminal menu fallback.
+- **📱 True Native Android SDK & NDK**:
+  - Android Build Tools **36.1.0** (`aapt`, `aapt2`, `apksigner`, `d8`, `zipalign`)
+  - Android Command-Line Tools **19.0** (`sdkmanager`, `avdmanager`, `lint`)
+  - Platform Tools (`adb`, `fastboot`)
+  - Full **NDK 29.0.14206865** LLVM Clang 21.0.0 toolchain with cross-target sysroots
+  - OpenJDK 21 LTS & Gradle 9.8.1 with automated `aapt2` maven override
+- **🤖 5 AI Coding Assistants Pre-Configured**:
+  - **Google Antigravity (`agy`)**: Native ARM64 binary with workspace customization support
+  - **OpenCode (`opencode`)**: Termux native ARM64 runner with auto-update
+  - **OpenAI Codex (`codex`)**: Bionic-optimized ARM64 release with GPT catalog support
+  - **Google Gemini (`gemini`)**: Official CLI with interactive prompts
+  - **GitHub Copilot (`copilot`)**: Glibc runtime-bridged binary with seamless device auth
+- **🔒 Kernel Concurrency Locking**: Every stage uses kernel-managed `flock` locks, preventing race conditions or corrupted partial runs while remaining immune to stale lockfiles after crashes.
+- **🛡️ Clean Shell & Secret Isolation**: User-global npm prefix (`~/.npm-global`), isolated private keys (`~/.ai-env` with `0600` permissions), and persistent environment profiles (`~/.android-env`).
+- **🧪 Ruthless 19-Point Stress Test Suite**: Rigorously tests file locks, PATH precedence, permissions, shebang integrity, compilers, all 5 AI engines, and the complete Android toolchain.
+
+---
+
+## 🏗️ Architecture & Design Principles
+
+```
+  ┌────────────────────────────────────────────────────────┐
+  │                 termux-suite / tsuite                  │
+  │               Interactive TUI Orchestrator             │
+  └───────────────────────────┬────────────────────────────┘
+                              │
+         ┌────────────────────┼───────────────────┐
+         ▼                    ▼                   ▼
+  ┌─────────────┐      ┌─────────────┐     ┌─────────────┐
+  │   Base &    │      │  Compilers  │     │   Node.js   │
+  │ Repositories│      │ & Essentials│     │  Toolchain  │
+  │  (Stage 01) │      │  (Stage 02) │     │  (Stage 03) │
+  └─────────────┘      └─────────────┘     └─────────────┘
+         │                    │                   │
+         ▼                    ▼                   ▼
+  ┌─────────────┐      ┌─────────────┐     ┌─────────────┐
+  │   AI CLI    │      │   AI Env    │     │ Android SDK │
+  │    Suite    │      │ & Secrets   │     │ & NDK Suite │
+  │  (Stage 04) │      │  (Stage 05) │     │  (Stage 06) │
+  └─────────────┘      └─────────────┘     └─────────────┘
+                              │
+                              ▼
+  ┌────────────────────────────────────────────────────────┐
+  │        Ruthless 19-Point Automated Test Suite          │
+  └────────────────────────────────────────────────────────┘
 ```
 
-### 2. Remote One-Line Bootstrap Installer
-On a fresh Termux device or new installation, clone and open the TUI in a single command:
+1. **Native over Container**: Wherever possible, binaries run directly on Termux/Bionic for maximum speed, zero proot overhead, and direct access to device hardware.
+2. **GLIBC Bridging on Demand**: When a tool requires glibc (e.g., GitHub Copilot CLI), it is bridged using `termux-glibc` (`grun` or custom dynamic loader invocation) without altering system Bionic libraries.
+3. **Zero Credential Exposure**: No secrets or API keys are ever committed, hard-coded, or stored in world-readable files. `~/.ai-env` is locked to mode `0600`.
+4. **Idempotence**: Every script can be executed multiple times safely without duplicated lines in shell rc files or redundant package downloads.
+
+---
+
+## 🚀 Quick Start
+
+### 1. Remote One-Liner Bootstrap
+
+To provision or install the suite on any fresh Termux installation with a single command:
+
 ```bash
 bash -c "$(curl -fsSL https://raw.githubusercontent.com/00AstroGit00/Termux-Dev/main/install.sh)"
 ```
 
-### 3. Command-Line Options
-Execute specific stages or run full provisioning directly:
+The installer verifies prerequisites, sets up the workspace, generates the global `termux-suite` and `tsuite` CLI commands, and immediately opens the interactive TUI.
+
+---
+
+### 2. Interactive TUI Launcher
+
+Once installed (or inside this workspace), launch the TUI anytime from anywhere:
+
 ```bash
-./setup.sh --all         # Run Stages 01 through 06 sequentially
-./setup.sh --base        # Stage 01: Base system & repos
-./setup.sh --essentials  # Stage 02: Compilers & dev tools
-./setup.sh --node        # Stage 03: Node.js & package managers
-./setup.sh --ai          # Stage 04: AI CLI Suite
-./setup.sh --ai-env      # Stage 05: Private AI environment template
-./setup.sh --android     # Stage 06: Android SDK, NDK & TermuxVoid
-./setup.sh --verify      # Inspect status of all installed tools
-./setup.sh --test        # Run ruthless 19-point stress & verification test suite
-./setup.sh --clean       # Clean concurrency locks and temporary files
+termux-suite
+# or the short alias:
+tsuite
+```
+
+#### TUI Interface Walkthrough:
+```text
+ ┌────────── Termux Provisioning & AI Suite Manager (ARM64) ──────────┐
+ │                                                                    │
+ │  Select a stage or action using Up/Down arrow keys and Enter:      │
+ │                                                                    │
+ │   1  Run Full Suite (Stages 01 -> 06)                              │
+ │   2  Stage 01: Base System, Repos & Zsh                            │
+ │   3  Stage 02: Essentials & Dev Toolchains                         │
+ │   4  Stage 03: Node.js & Package Managers (ARM64)                  │
+ │   5  Stage 04: AI CLI Suite (agy, opencode, codex, gemini, copilot│
+ │   6  Stage 05: AI Environment & Keys Template (~/.ai-env)          │
+ │   7  Stage 06: Android SDK, NDK & TermuxVoid Toolchains            │
+ │   8  Verify All Installed Tools                                    │
+ │   9  Run Ruthless Stress & Verification Test Suite                 │
+ │  10  Clean Locks & Temporary Files                                 │
+ │   0  Exit                                                          │
+ │                                                                    │
+ ├────────────────────────────────────────────────────────────────────┤
+ │                       <  OK  >      < Cancel >                     │
+ └────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## AI Assistant Suite
+### 3. Command-Line Options
 
-| Assistant | CLI Command | Package Source | Authentication |
+You can also run specific tasks directly without the TUI:
+
+```bash
+./setup.sh --all         # Execute all stages (01 -> 06) sequentially
+./setup.sh --base        # Stage 01: Base system, repos & Zsh
+./setup.sh --essentials  # Stage 02: Compilers, tools & dev utilities
+./setup.sh --node        # Stage 03: Node.js 24 LTS & package managers
+./setup.sh --ai          # Stage 04: AI CLI Suite provisioning
+./setup.sh --ai-env      # Stage 05: Setup private ~/.ai-env template
+./setup.sh --android     # Stage 06: Android SDK, NDK & TermuxVoid setup
+./setup.sh --verify      # Inspect status of all installed tools
+./setup.sh --test        # Run ruthless 19-point stress & verification suite
+./setup.sh --clean       # Remove temporary locks and cache files
+./setup.sh --help        # Display usage information
+```
+
+---
+
+## 📦 Modular Provisioning Stages
+
+### Stage 01: Base System, Repositories & Zsh (`01-termux-base.sh`)
+- Configures core APT mirrors (`main`, `x11`, `root`, `tur`).
+- Installs base system tools: `bash-completion`, `git`, `gh`, `curl`, `rsync`, `tar`, `xz-utils`.
+- Optional TermuxVoid repository integration.
+- Sets up modern **Zsh** with `zsh-autosuggestions`, `zsh-syntax-highlighting`, and custom prompt profiles.
+- Configures **OpenSSH (`sshd`)** with quick management aliases (`ssh-start`, `ssh-stop`, `ssh-status`).
+
+### Stage 02: Essentials & Developer Toolchains (`02-termux-essentials.sh`)
+- **Compilers**: Clang 21, GNU Make, CMake 4.4, binutils.
+- **Programming Languages**: Python 3.14 (with pip and build headers), Rust 1.99 (`rustc` & `cargo`), Go, Perl.
+- **Search & Productivity**: `ripgrep` (`rg`), `jq`, `tree`, `tmux`, `micro`, `vim`.
+- **Databases & Networking**: SQLite 3, `nmap`, `net-tools`, `gping`, `dnsutils`.
+
+### Stage 03: Node.js & Package Managers (`03-termux-node-toolchain.sh`)
+- Installs Termux **`nodejs-lts` (v24.x)** and npm 11.
+- Isolates global modules into `~/.npm-global` to keep system files clean.
+- Pins **pnpm 10.x line (`10.33.4`)** to guarantee ARM64 compatibility on Android.
+- Installs Yarn and runs `termux-fix-shebang` on all global CLI binaries.
+
+### Stage 04: AI Coding Assistant Suite (`04-termux-ai-cli.sh`)
+- Installs and verifies 5 AI coding assistants natively on Termux ARM64.
+- Automated glibc linker wrapping for GitHub Copilot.
+- Self-bootstrapping runtime configuration for OpenCode.
+
+### Stage 05: Private AI Environment & Credentials (`05-ai-env.sh`)
+- Provisions a dedicated `~/.ai-env` template locked with strict `600` permissions.
+- Integrated into both `~/.bashrc` and `~/.zshrc`.
+- Provides environment variable placeholders for Gemini, OpenAI, Anthropic, OpenRouter, and GitHub tokens.
+
+### Stage 06: Android SDK, NDK & TermuxVoid (`06-termux-android-sdk.sh`)
+- Connects the **TermuxVoid** repository (`tvpkg` TUI package manager).
+- Installs **OpenJDK 21 LTS** and **Gradle 9.8.1**.
+- Deploys **Android SDK (36.1.0)** with `aapt2`, `apksigner`, `d8`, and `sdkmanager` (v19.0).
+- Deploys **Android NDK (29.0.14206865)** featuring LLVM Clang 21.0.0.
+- Establishes global `~/.gradle/gradle.properties` and persistent `~/.android-env`.
+
+---
+
+## 📱 Android App Development On-Device
+
+With this suite, you can build native Android applications and compile C/C++ libraries directly on your phone or tablet without needing a desktop PC.
+
+### Global Gradle Configuration
+
+Gradle builds automatically read [`~/.gradle/gradle.properties`](file:///data/data/com.termux/files/home/.gradle/gradle.properties):
+
+```properties
+# Native Termux ARM64 AAPT2 Override
+android.aapt2FromMavenOverride=/data/data/com.termux/files/usr/opt/android-sdk/build-tools/36.1.0/aapt2
+
+# JVM Memory optimization for mobile SoC
+org.gradle.jvmargs=-Xmx2048m -XX:+UseG1GC
+
+# Disable automatic x86_64 SDK download attempt
+android.builder.sdkDownload=false
+```
+
+### In Your Android Project
+
+In any Android application directory, configure [`android/local.properties`](file:///data/data/com.termux/files/usr/opt/android-sdk):
+
+```properties
+sdk.dir=/data/data/com.termux/files/usr/opt/android-sdk
+ndk.dir=/data/data/com.termux/files/usr/opt/android-sdk/ndk/29.0.14206865
+cmake.dir=/data/data/com.termux/files/usr/opt/android-sdk/cmake/4.1.2
+```
+
+Build debug APKs directly:
+```bash
+./gradlew assembleDebug
+```
+
+### Native NDK C/C++ Compilation
+
+Compile native ARM64 executables directly with NDK Clang:
+
+```bash
+# C Compilation
+$ANDROID_NDK_ROOT/toolchains/llvm/prebuilt/linux-arm64/bin/clang main.c -o myapp
+
+# C++ Compilation (with static STL)
+$ANDROID_NDK_ROOT/toolchains/llvm/prebuilt/linux-arm64/bin/clang++ -static-libstdc++ main.cpp -o myapp_cpp
+```
+
+Supported NDK cross-compilation targets:
+- `aarch64-linux-android` (ARM64)
+- `arm-linux-androideabi` (ARMv7)
+- `x86_64-linux-android` (x86_64)
+- `i686-linux-android` (x86)
+- `riscv64-linux-android` (RISC-V 64)
+
+---
+
+## 🤖 AI Assistant Hub
+
+The suite packages and maintains 5 leading terminal AI coding assistants:
+
+| Assistant | CLI Command | Package Source | Authentication & Setup |
 | :--- | :--- | :--- | :--- |
-| **Google Antigravity** | `agy` | Native Termux ARM64 binary | Run `agy` (Google developer login) |
-| **OpenCode** | `opencode` | `opencode-termux` (native ARM64 runner) | Interactive / `~/.config/opencode/` |
-| **OpenAI Codex** | `codex` | `@mmmbuto/codex-cli-termux` | `codex login` or `OPENAI_API_KEY` |
-| **Google Gemini** | `gemini` | `@google/gemini-cli` | Run `gemini` or `GEMINI_API_KEY` |
-| **GitHub Copilot** | `copilot` | `@bash0816/copilot-termux` (glibc bridged) | Run `copilot` (browser/device code) |
+| **Google Antigravity** | `agy` | Community Termux Native ARM64 | Run `agy` and follow browser/Google account prompt |
+| **OpenCode** | `opencode` | `opencode-termux` (native ARM64 runner) | Run `opencode` -> configure preferred LLM provider |
+| **OpenAI Codex** | `codex` | `@mmmbuto/codex-cli-termux` | Run `codex login` or set `OPENAI_API_KEY` in `~/.ai-env` |
+| **Google Gemini** | `gemini` | `@google/gemini-cli` | Run `gemini` or set `GEMINI_API_KEY` in `~/.ai-env` |
+| **GitHub Copilot** | `copilot` | `@bash0816/copilot-termux` (glibc bridge) | Run `copilot` and authenticate via device code |
 
 ---
 
-## Android Development Setup
+## 🧪 Automated Verification & Stress Test Suite
 
-- **SDK Location**: `$PREFIX/opt/android-sdk`
-- **NDK Location**: `$PREFIX/opt/android-sdk/ndk/29.0.14206865`
-- **Java Home**: `$PREFIX/lib/jvm/java-21-openjdk`
-- **Shell Exports**: Persistent configuration managed via `~/.android-env`.
-- **Global Gradle Configuration (`~/.gradle/gradle.properties`)**:
-  ```properties
-  android.aapt2FromMavenOverride=/data/data/com.termux/files/usr/opt/android-sdk/build-tools/36.1.0/aapt2
-  org.gradle.jvmargs=-Xmx2048m -XX:+UseG1GC
-  android.builder.sdkDownload=false
-  ```
+Execute the full 19-point verification suite at any time:
 
----
-
-## Verification & Test Suite
-
-Run the 19-point automated stress and functional test suite:
 ```bash
 bash test-suite.sh
+# or:
+termux-suite --test
 ```
 
-### Coverage
-- Kernel `flock` lock concurrency & crash recovery
-- `$PATH` ordering precedence (`~/.local/bin` > `~/.npm-global/bin`)
-- Security permissions on credential files (`~/.ai-env` mode 600)
-- Interpreter shebang resolution across all npm global binaries
-- Functional compiler execution: Clang C (ARM64 native binary generation), Python 3.14, Node.js 24 LTS, pnpm 10.x
-- Functional execution of all 5 AI CLI engines (`agy`, `opencode`, `codex`, `gemini`, `copilot`)
-- Android toolchain verification: `tvpkg`, OpenJDK 21, Gradle 9.x, `aapt2`, `apksigner`, `d8`, `sdkmanager`, and NDK Clang 21.0.0
+### Test Suite Output
+
+```
+=======================================================
+       RUTHLESS VERIFICATION & STRESS TEST SUITE       
+=======================================================
+
+▶ [TEST] Kernel flock lock acquisition & crash recovery ... PASS
+▶ [TEST] PATH ordering (~/.local/bin precedes ~/.npm-global/bin) ... PASS
+▶ [TEST] Security permissions on ~/.ai-env ... PASS (Permissions secure: 600)
+▶ [TEST] Interpreter shebangs in ~/.npm-global/bin ... PASS
+▶ [TEST] Clang C compiler execution ... PASS
+▶ [TEST] Python 3 runtime & stdlib execution ... PASS (PYTHON_OK 3.14)
+▶ [TEST] Node.js 24 LTS runtime & architecture execution ... PASS (NODE_OK v24.18.0 arm64)
+▶ [TEST] pnpm ARM64 compatibility execution ... PASS (pnpm pinned version: 10.33.4)
+▶ [TEST] Antigravity CLI (agy) functional execution ... PASS (1.3.3)
+▶ [TEST] OpenCode (opencode) functional execution ... PASS (1.18.35)
+▶ [TEST] OpenAI Codex CLI (codex) functional execution ... PASS (codex-cli 0.160.0)
+▶ [TEST] Google Gemini CLI (gemini) functional execution ... PASS (0.63.0)
+▶ [TEST] GitHub Copilot CLI (copilot via grun) functional execution ... PASS (1.0.95)
+▶ [TEST] TermuxVoid package manager (tvpkg) ... PASS
+▶ [TEST] Java OpenJDK 21 execution ... PASS (openjdk 21.0.12)
+▶ [TEST] Gradle build system execution ... PASS (Gradle 9.8.1)
+▶ [TEST] Android SDK & build-tools (aapt2, d8, apksigner) ... PASS
+▶ [TEST] Android SDK Manager (sdkmanager) ... PASS (19.0)
+▶ [TEST] Android NDK LLVM Clang compiler execution ... PASS (Clang 21.0.0)
+
+=== Test Suite Results ===
+  Passed:   19
+  Warnings: 0
+  Failed:   0
+
+✔ SYSTEM IS VERIFIED BULLETPROOF.
+```
+
+---
+
+## 🧠 Google Antigravity Integration
+
+This repository includes native customizations following the **Google Antigravity Customization System**:
+
+- **Workspace Rules ([`AGENTS.md`](./AGENTS.md))**: Informs AI coding agents about Termux architecture, Bionic libc vs. glibc, npm isolation standards, and Android Gradle properties.
+- **Custom Skill Runbook ([`.agents/skills/termux-suite/SKILL.md`](./.agents/skills/termux-suite/SKILL.md))**: Provides runbooks for managing the suite, diagnosing errors, updating AI assistants, and verifying toolchains.
+
+---
+
+## ❓ Troubleshooting & FAQ
+
+### 1. Bad interpreter / shebang errors (`/usr/bin/env: bad interpreter`)
+Termux does not use standard `/usr/bin/env`. Run the Termux shebang fixer:
+```bash
+termux-fix-shebang ~/.npm-global/bin/* ~/.local/bin/* $PREFIX/bin/* 2>/dev/null || true
+```
+
+### 2. A stage script says "Another instance is already running"
+If an installation was killed abruptly with `SIGKILL`:
+```bash
+termux-suite --clean
+# or manually:
+rm -rf "$PREFIX/tmp"/*.lock
+```
+
+### 3. Gradle throws `java.lang.OutOfMemoryError`
+Mobile Android devices enforce memory constraints. Limit the Gradle daemon JVM heap size in `~/.gradle/gradle.properties`:
+```properties
+org.gradle.jvmargs=-Xmx1024m -XX:+UseG1GC
+```
+
+### 4. SDK Manager says `Could not determine SDK root`
+Ensure `cmdline-tools` is placed inside `latest/bin/`. Our installer automatically applies this patch, but if you re-extract the SDK, run:
+```bash
+bash 06-termux-android-sdk.sh
+```
+
+---
+
+## 📁 Repository Structure
+
+```text
+Termux-Dev/
+├── 01-termux-base.sh           # Stage 01: System repos, core packages, Zsh, SSH
+├── 02-termux-essentials.sh     # Stage 02: Compilers, Python, Rust, Go, tools
+├── 03-termux-node-toolchain.sh # Stage 03: Node.js LTS, isolated npm, pnpm, Yarn
+├── 04-termux-ai-cli.sh         # Stage 04: AI CLI suite (agy, opencode, codex, gemini, copilot)
+├── 05-ai-env.sh                # Stage 05: Private credentials template (~/.ai-env)
+├── 06-termux-android-sdk.sh    # Stage 06: Android SDK, NDK, TermuxVoid, Java
+├── setup.sh                    # Master orchestrator (TUI & CLI interface)
+├── install.sh                  # One-line curl bootstrap installer
+├── test-suite.sh               # Ruthless 19-point stress & verification suite
+├── bin/
+│   └── termux-suite            # Global CLI launcher executable
+├── .agents/
+│   └── skills/
+│       └── termux-suite/
+│           └── SKILL.md        # Antigravity custom skill runbook
+├── AGENTS.md                   # Antigravity workspace rules & guidelines
+├── .gitignore                  # Git ignore rules for locks, secrets, and builds
+└── README.md                   # Comprehensive project documentation
+```
+
+---
+
+## 📄 License
+
+This project is licensed under the Apache 2.0 License. See the individual stages and tools for their respective upstream licenses.
