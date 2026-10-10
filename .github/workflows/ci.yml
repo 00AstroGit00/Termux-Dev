@@ -55,7 +55,7 @@ jobs:
 
       - name: Validate Markdown Documents
         run: |
-          for doc in README.md AGENTS.md .agents/skills/termux-suite/SKILL.md; do
+          for doc in README.md AGENTS.md .agents/skills/termux-suite/SKILL.md .agents/skills/termux-android/SKILL.md; do
             if [ ! -f "$doc" ]; then
               echo "Missing required documentation: $doc"
               exit 1

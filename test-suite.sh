@@ -113,9 +113,15 @@ test_start "Interpreter shebangs in ~/.npm-global/bin"
 UNRESOLVED_SHEBANGS=0
 if [[ -d "$HOME/.npm-global/bin" ]]; then
     for bin in "$HOME/.npm-global/bin"/*; do
-        [[ -f "$bin" && -x "$bin" ]] || continue
-        FIRST_LINE="$(head -n 1 "$bin" 2>/dev/null || true)"
-        if [[ "$FIRST_LINE" == "#!/usr/bin/env"* ]]; then
+        [[ -e "$bin" ]] || continue
+        TARGET="$(readlink -f "$bin" 2>/dev/null || echo "$bin")"
+        [[ -f "$TARGET" && -x "$TARGET" ]] || continue
+        # Skip ELF binary executables
+        if head -c 4 "$TARGET" 2>/dev/null | grep -q $'\x7fELF'; then
+            continue
+        fi
+        FIRST_LINE="$(head -n 1 "$TARGET" 2>/dev/null || true)"
+        if [[ "$FIRST_LINE" == "#!/usr/bin/env"* || "$FIRST_LINE" == "#!/bin/"* ]]; then
             test_warn "Unpatched shebang in $(basename "$bin"): $FIRST_LINE"
             UNRESOLVED_SHEBANGS=$((UNRESOLVED_SHEBANGS + 1))
         fi
@@ -288,6 +294,38 @@ NDK_CLANG="${ANDROID_NDK_ROOT:-$PREFIX/opt/android-sdk/ndk/29.0.14206865}/toolch
 if [[ -x "$NDK_CLANG" ]]; then
     NDK_OUT="$("$NDK_CLANG" --version 2>&1 | head -n 1 || true)"
     test_pass "NDK Clang operational: $NDK_OUT"
+else
+    test_fail "NDK Clang not executable at $NDK_CLANG"
+fi
+
+test_start "AAPT2 & d8 minimal APK and DEX synthesis"
+cat > "$TMP_TEST_DIR/AndroidManifest.xml" <<'EOF'
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.test.suite">
+    <application android:label="TestApp" />
+</manifest>
+EOF
+cat > "$TMP_TEST_DIR/SuiteTest.java" <<'EOF'
+public class SuiteTest { public static void main(String[] args) {} }
+EOF
+ANDROID_JAR="${ANDROID_HOME:-$PREFIX/opt/android-sdk}/platforms/android-36/android.jar"
+if [[ -f "$ANDROID_JAR" ]] && aapt2 link -I "$ANDROID_JAR" --manifest "$TMP_TEST_DIR/AndroidManifest.xml" -o "$TMP_TEST_DIR/suite.apk" >/dev/null 2>&1 && javac "$TMP_TEST_DIR/SuiteTest.java" -d "$TMP_TEST_DIR" >/dev/null 2>&1 && d8 "$TMP_TEST_DIR/SuiteTest.class" --output "$TMP_TEST_DIR" >/dev/null 2>&1; then
+    test_pass "aapt2 and d8 compiled valid APK & DEX artifacts"
+else
+    test_fail "APK/DEX synthesis failed"
+fi
+
+test_start "Android NDK native C compilation (ARM64)"
+if [[ -x "$NDK_CLANG" ]]; then
+    cat > "$TMP_TEST_DIR/ndk_hello.c" <<'EOF'
+#include <stdio.h>
+int main() { printf("NDK_OK\n"); return 0; }
+EOF
+    if "$NDK_CLANG" "$TMP_TEST_DIR/ndk_hello.c" -o "$TMP_TEST_DIR/ndk_hello" >/dev/null 2>&1 && [[ "$("$TMP_TEST_DIR/ndk_hello" 2>&1 || true)" == *"NDK_OK"* ]]; then
+        test_pass "NDK Clang compiled and executed native ARM64 binary"
+    else
+        test_fail "NDK Clang compilation or execution failed"
+    fi
 else
     test_fail "NDK Clang not executable at $NDK_CLANG"
 fi

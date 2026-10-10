@@ -171,7 +171,7 @@ You can also run specific tasks directly without the TUI:
 ./setup.sh --ai-env      # Stage 05: Setup private ~/.ai-env template
 ./setup.sh --android     # Stage 06: Android SDK, NDK & TermuxVoid setup
 ./setup.sh --verify      # Inspect status of all installed tools
-./setup.sh --test        # Run ruthless 19-point stress & verification suite
+./setup.sh --test        # Run ruthless 21-point stress & verification suite
 ./setup.sh --clean       # Remove temporary locks and cache files
 ./setup.sh --help        # Display usage information
 ```
@@ -289,7 +289,7 @@ The suite packages and maintains 5 leading terminal AI coding assistants:
 
 ## 🧪 Automated Verification & Stress Test Suite
 
-Execute the full 19-point verification suite at any time:
+Execute the full 21-point verification suite at any time:
 
 ```bash
 bash test-suite.sh
@@ -323,9 +323,11 @@ termux-suite --test
 ▶ [TEST] Android SDK & build-tools (aapt2, d8, apksigner) ... PASS
 ▶ [TEST] Android SDK Manager (sdkmanager) ... PASS (19.0)
 ▶ [TEST] Android NDK LLVM Clang compiler execution ... PASS (Clang 21.0.0)
+▶ [TEST] AAPT2 & d8 minimal APK and DEX synthesis ... PASS
+▶ [TEST] Android NDK native C compilation (ARM64) ... PASS
 
 === Test Suite Results ===
-  Passed:   19
+  Passed:   21
   Warnings: 0
   Failed:   0
 
@@ -339,7 +341,8 @@ termux-suite --test
 This repository includes native customizations following the **Google Antigravity Customization System**:
 
 - **Workspace Rules ([`AGENTS.md`](./AGENTS.md))**: Informs AI coding agents about Termux architecture, Bionic libc vs. glibc, npm isolation standards, and Android Gradle properties.
-- **Custom Skill Runbook ([`.agents/skills/termux-suite/SKILL.md`](./.agents/skills/termux-suite/SKILL.md))**: Provides runbooks for managing the suite, diagnosing errors, updating AI assistants, and verifying toolchains.
+- **Suite Management Skill ([`.agents/skills/termux-suite/SKILL.md`](./.agents/skills/termux-suite/SKILL.md))**: Provides runbooks for managing the suite, diagnosing errors, updating AI assistants, and verifying toolchains.
+- **Android Toolchain Skill ([`.agents/skills/termux-android/SKILL.md`](./.agents/skills/termux-android/SKILL.md))**: Complete guide and runbook for standalone APK packaging, AAPT2/D8/apksigner workflows, NDK C/C++ compilation, and Gradle configuration.
 
 ---
 
@@ -377,6 +380,17 @@ bash 06-termux-android-sdk.sh
 
 ```text
 Termux-Dev/
+├── .github/
+│   └── workflows/
+│       └── ci.yml              # Automated GitHub Actions CI workflow
+├── .agents/
+│   └── skills/
+│       ├── termux-suite/
+│       │   └── SKILL.md        # Antigravity suite management runbook
+│       └── termux-android/
+│           └── SKILL.md        # Antigravity Android & NDK development runbook
+├── bin/
+│   └── termux-suite            # Global CLI launcher executable
 ├── 01-termux-base.sh           # Stage 01: System repos, core packages, Zsh, SSH
 ├── 02-termux-essentials.sh     # Stage 02: Compilers, Python, Rust, Go, tools
 ├── 03-termux-node-toolchain.sh # Stage 03: Node.js LTS, isolated npm, pnpm, Yarn
@@ -385,14 +399,10 @@ Termux-Dev/
 ├── 06-termux-android-sdk.sh    # Stage 06: Android SDK, NDK, TermuxVoid, Java
 ├── setup.sh                    # Master orchestrator (TUI & CLI interface)
 ├── install.sh                  # One-line curl bootstrap installer
-├── test-suite.sh               # Ruthless 19-point stress & verification suite
-├── bin/
-│   └── termux-suite            # Global CLI launcher executable
-├── .agents/
-│   └── skills/
-│       └── termux-suite/
-│           └── SKILL.md        # Antigravity custom skill runbook
+├── test-suite.sh               # Ruthless 21-point stress & verification suite
 ├── AGENTS.md                   # Antigravity workspace rules & guidelines
+├── LICENSE                     # Apache 2.0 Open Source License
+├── .shellcheckrc               # ShellCheck linting configuration
 ├── .gitignore                  # Git ignore rules for locks, secrets, and builds
 └── README.md                   # Comprehensive project documentation
 ```
