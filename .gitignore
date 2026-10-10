@@ -1,0 +1,32 @@
+# Locks & Temporary Files
+*.lock
+*.tmp
+*.log
+
+# Secrets, Environment & Credentials
+.ai-env
+*.key
+*.pem
+*.secret
+credentials.json
+
+# C/C++ build artifacts
+*.o
+*.so
+*.a
+*.out
+test_c
+test_ndk
+test_ndk_cpp
+test_ndk_cpp_static
+
+# Node.js & Package Managers
+node_modules/
+.npm/
+
+# Android build outputs & local config
+*.apk
+*.aab
+build/
+.gradle/
+local.properties
