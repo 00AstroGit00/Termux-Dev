@@ -1,0 +1,63 @@
+name: CI & Code Quality
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  shellcheck:
+    name: ShellCheck Linting
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run ShellCheck
+        uses: ludeeus/action-shellcheck@master
+        with:
+          sc_ignore: SC1090,SC1091,SC2016,SC2015,SC2088,SC2034
+          severity: warning
+
+  syntax-check:
+    name: Bash Syntax Validation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Validate Bash Syntax
+        run: |
+          for script in *.sh bin/*; do
+            if [ -f "$script" ]; then
+              echo "Validating syntax of $script..."
+              bash -n "$script"
+            fi
+          done
+
+  integrity-check:
+    name: Repository Integrity
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check Executable Permissions
+        run: |
+          for script in *.sh bin/*; do
+            if [ -f "$script" ] && [ ! -x "$script" ]; then
+              echo "Error: $script is not marked executable"
+              exit 1
+            fi
+          done
+
+      - name: Validate Markdown Documents
+        run: |
+          for doc in README.md AGENTS.md .agents/skills/termux-suite/SKILL.md; do
+            if [ ! -f "$doc" ]; then
+              echo "Missing required documentation: $doc"
+              exit 1
+            fi
+          done

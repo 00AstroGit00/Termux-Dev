@@ -1,0 +1,17 @@
+# .shellcheckrc - ShellCheck configuration for Termux Suite
+
+# Dynamic source files in Termux (~/.android-env, ~/.ai-env)
+disable=SC1090
+disable=SC1091
+
+# Literal strings appended to shell rc files (e.g. '$HOME')
+disable=SC2016
+
+# Ternary checks in command status reporting (cmd && pass || fail)
+disable=SC2015
+
+# Tilde in test descriptions and log output
+disable=SC2088
+
+# Reusable terminal color variables in modular templates
+disable=SC2034
