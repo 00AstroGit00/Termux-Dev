@@ -33,14 +33,21 @@ This repository provides an automated, modular, and idempotent provisioning fram
 
 ## Quick Start
 
-### 1. Interactive Menu
-Launch the interactive orchestrator:
+### 1. Single Command Interactive TUI Launch
+Launch the interactive TUI directly from anywhere in your terminal:
 ```bash
-chmod +x setup.sh
-./setup.sh
+termux-suite
+# or quick alias:
+tsuite
 ```
 
-### 2. Command-Line Options
+### 2. Remote One-Line Bootstrap Installer
+On a fresh Termux device or new installation, clone and open the TUI in a single command:
+```bash
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/00AstroGit00/Termux-Dev/main/install.sh)"
+```
+
+### 3. Command-Line Options
 Execute specific stages or run full provisioning directly:
 ```bash
 ./setup.sh --all         # Run Stages 01 through 06 sequentially

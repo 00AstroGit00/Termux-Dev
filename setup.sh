@@ -109,7 +109,65 @@ verify_all() {
     printf '\n'
 }
 
+show_dialog_tui() {
+    local choice
+    while true; do
+        choice=$(dialog --clear \
+            --backtitle "Termux Provisioning & AI Suite Manager (ARM64)" \
+            --title " Main Interactive Menu " \
+            --cancel-label "Exit" \
+            --menu "Select a stage or action using Up/Down arrow keys and Enter:" 22 72 11 \
+            "1" "Run Full Suite (Stages 01 -> 06)" \
+            "2" "Stage 01: Base System, Repos & Zsh" \
+            "3" "Stage 02: Essentials & Dev Toolchains" \
+            "4" "Stage 03: Node.js & Package Managers (ARM64)" \
+            "5" "Stage 04: AI CLI Suite (agy, opencode, codex, gemini, copilot)" \
+            "6" "Stage 05: AI Environment & Keys Template (~/.ai-env)" \
+            "7" "Stage 06: Android SDK, NDK & TermuxVoid Toolchains" \
+            "8" "Verify All Installed Tools" \
+            "9" "Run Ruthless Stress & Verification Test Suite" \
+            "10" "Clean Locks & Temporary Files" \
+            "0" "Exit" \
+            2>&1 >/dev/tty) || break
+
+        clear
+        case "$choice" in
+            1)
+                run_stage "01-termux-base.sh" "Stage 01: Termux Base Setup"
+                run_stage "02-termux-essentials.sh" "Stage 02: Essentials & Dev Tools"
+                run_stage "03-termux-node-toolchain.sh" "Stage 03: Node.js Toolchain"
+                run_stage "04-termux-ai-cli.sh" "Stage 04: AI CLI Suite"
+                run_stage "05-ai-env.sh" "Stage 05: AI Environment & Credentials"
+                run_stage "06-termux-android-sdk.sh" "Stage 06: Android SDK & NDK Toolchain"
+                verify_all
+                ;;
+            2) run_stage "01-termux-base.sh" "Stage 01: Termux Base Setup" ;;
+            3) run_stage "02-termux-essentials.sh" "Stage 02: Essentials & Dev Tools" ;;
+            4) run_stage "03-termux-node-toolchain.sh" "Stage 03: Node.js Toolchain" ;;
+            5) run_stage "04-termux-ai-cli.sh" "Stage 04: AI CLI Suite" ;;
+            6) run_stage "05-ai-env.sh" "Stage 05: AI Environment & Credentials" ;;
+            7) run_stage "06-termux-android-sdk.sh" "Stage 06: Android SDK & NDK Toolchain" ;;
+            8) verify_all ;;
+            9) bash "$SETUP_DIR/test-suite.sh" ;;
+            10)
+                rm -rf "${TMPDIR:-$PREFIX/tmp}"/*.lock "${TMPDIR:-$PREFIX/tmp}"/ai-cli-suite* 2>/dev/null || true
+                success "Temporary locks cleared."
+                ;;
+            0) break ;;
+        esac
+
+        printf '\n%sPress Enter to return to the interactive menu...%s' "$BOLD$CYAN" "$NC"
+        read -r
+    done
+    clear 2>/dev/null || true
+}
+
 show_menu() {
+    if command -v dialog >/dev/null 2>&1 && [[ -t 0 && -t 1 ]] && [[ "${USE_TUI:-1}" != "0" ]]; then
+        show_dialog_tui
+        return
+    fi
+
     clear 2>/dev/null || true
     printf '%s=======================================================%s\n' "$BOLD$CYAN" "$NC"
     printf '%s       Termux Provisioning & AI Suite Manager          %s\n' "$BOLD$GREEN" "$NC"

@@ -1,0 +1,32 @@
+#!/data/data/com.termux/files/usr/bin/bash
+#
+# termux-suite launcher
+# Launches the Termux Provisioning & AI Suite Interactive TUI
+#
+
+set -Eeuo pipefail
+
+SUITE_DIR="${TERMUX_SUITE_DIR:-}"
+
+if [[ -z "$SUITE_DIR" || ! -f "$SUITE_DIR/setup.sh" ]]; then
+    SELF_PATH="$(readlink -f "${BASH_SOURCE[0]}" 2>/dev/null || echo "${BASH_SOURCE[0]}")"
+    SELF_DIR="$(cd "$(dirname "$SELF_PATH")" && pwd)"
+    
+    if [[ -f "$SELF_DIR/setup.sh" ]]; then
+        SUITE_DIR="$SELF_DIR"
+    elif [[ -f "$SELF_DIR/../setup.sh" ]]; then
+        SUITE_DIR="$(cd "$SELF_DIR/.." && pwd)"
+    elif [[ -f "$HOME/Projects/Termux/new/setup.sh" ]]; then
+        SUITE_DIR="$HOME/Projects/Termux/new"
+    elif [[ -f "$HOME/.termux-suite/setup.sh" ]]; then
+        SUITE_DIR="$HOME/.termux-suite"
+    fi
+fi
+
+if [[ -z "$SUITE_DIR" || ! -f "$SUITE_DIR/setup.sh" ]]; then
+    printf '\033[0;31m[ERROR]\033[0m Could not locate Termux Suite installation directory.\n' >&2
+    printf 'Set TERMUX_SUITE_DIR to your repository path.\n' >&2
+    exit 1
+fi
+
+exec bash "$SUITE_DIR/setup.sh" "$@"
