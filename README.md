@@ -171,7 +171,7 @@ You can also run specific tasks directly without the TUI:
 ./setup.sh --ai-env      # Stage 05: Setup private ~/.ai-env template
 ./setup.sh --android     # Stage 06: Android SDK, NDK & TermuxVoid setup
 ./setup.sh --verify      # Inspect status of all installed tools
-./setup.sh --test        # Run ruthless 22-point stress & verification suite
+./setup.sh --test        # Run ruthless 23-point stress & verification suite
 ./setup.sh --clean       # Remove temporary locks and cache files
 ./setup.sh --help        # Display usage information
 ```
@@ -303,7 +303,7 @@ The suite packages and maintains 5 leading terminal AI coding assistants:
 
 ## 🧪 Automated Verification & Stress Test Suite
 
-Execute the full 22-point verification suite at any time:
+Execute the full 23-point verification suite at any time:
 
 ```bash
 bash test-suite.sh
@@ -335,6 +335,7 @@ termux-suite --test
 ▶ [TEST] Java OpenJDK 21 execution ... PASS (openjdk 21.0.12)
 ▶ [TEST] Gradle build system execution ... PASS (Gradle 9.8.1)
 ▶ [TEST] Android SDK & build-tools (aapt2, d8, apksigner) ... PASS
+▶ [TEST] Android Debug Bridge (adb) socket protocol execution ... PASS
 ▶ [TEST] Android SDK Manager (sdkmanager) ... PASS (19.0)
 ▶ [TEST] Android NDK LLVM Clang compiler execution ... PASS (Clang 21.0.0)
 ▶ [TEST] AAPT2 & d8 minimal APK and DEX synthesis ... PASS
@@ -342,7 +343,7 @@ termux-suite --test
 ▶ [TEST] Google Android CLI (android) operational execution ... PASS (1.0.16500706)
 
 === Test Suite Results ===
-  Passed:   22
+  Passed:   23
   Warnings: 0
   Failed:   0
 
@@ -389,6 +390,13 @@ Ensure `cmdline-tools` is placed inside `latest/bin/`. Our installer automatical
 bash 06-termux-android-sdk.sh
 ```
 
+### 5. ADB returns `error: protocol fault (couldn't read status): Connection reset by peer`
+The generic SDK build of ADB in `$ANDROID_HOME/platform-tools/adb` is incompatible with the Termux Bionic socket sandbox. The workstation automatically symlinks the Termux-native `android-tools` package (`$PREFIX/bin/adb`) into `platform-tools/adb`. To restart cleanly:
+```bash
+adb kill-server
+adb devices
+```
+
 ---
 
 ## 📁 Repository Structure
@@ -414,7 +422,7 @@ Termux-Dev/
 ├── 06-termux-android-sdk.sh    # Stage 06: Android SDK, NDK, TermuxVoid, Java
 ├── setup.sh                    # Master orchestrator (TUI & CLI interface)
 ├── install.sh                  # One-line curl bootstrap installer
-├── test-suite.sh               # Ruthless 22-point stress & verification suite
+├── test-suite.sh               # Ruthless 23-point stress & verification suite
 ├── AGENTS.md                   # Antigravity workspace rules & guidelines
 ├── LICENSE                     # Apache 2.0 Open Source License
 ├── .shellcheckrc               # ShellCheck linting configuration

@@ -143,6 +143,13 @@ if [[ -d "$NDK_BIN" ]]; then
     fi
 fi
 
+# Link Termux-native adb and fastboot into platform-tools to avoid socket protocol faults
+if [[ -d "$ANDROID_HOME/platform-tools" ]]; then
+    info "Linking Termux native adb and fastboot into platform-tools..."
+    [[ -x "$PREFIX/bin/adb" ]] && ln -sf "$PREFIX/bin/adb" "$ANDROID_HOME/platform-tools/adb"
+    [[ -x "$PREFIX/bin/fastboot" ]] && ln -sf "$PREFIX/bin/fastboot" "$ANDROID_HOME/platform-tools/fastboot"
+fi
+
 # -----------------------------
 # 5. Google Android CLI (android)
 # -----------------------------

@@ -281,6 +281,18 @@ else
     test_fail "aapt2 or apksigner not found on PATH"
 fi
 
+test_start "Android Debug Bridge (adb) socket protocol execution"
+if command -v adb >/dev/null 2>&1; then
+    ADB_OUT="$(adb devices 2>&1 || true)"
+    if [[ "$ADB_OUT" == *"List of devices attached"* && "$ADB_OUT" != *"protocol fault"* ]]; then
+        test_pass "adb operational without protocol fault"
+    else
+        test_fail "adb returned protocol fault: $ADB_OUT"
+    fi
+else
+    test_fail "adb not found on PATH"
+fi
+
 test_start "Android SDK Manager (sdkmanager)"
 if command -v sdkmanager >/dev/null 2>&1; then
     SDK_VER="$(sdkmanager --version 2>&1 | head -n 1 || true)"
