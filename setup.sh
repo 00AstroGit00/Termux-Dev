@@ -14,6 +14,9 @@ set -Eeuo pipefail
 
 SETUP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# Enforce canonical PATH ordering
+export PATH="$HOME/.local/bin:$HOME/.npm-global/bin:$HOME/bin:$PREFIX/bin:$PATH"
+
 # Colors
 RED=$'\033[0;31m'
 GREEN=$'\033[0;32m'
