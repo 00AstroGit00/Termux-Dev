@@ -366,6 +366,8 @@ This repository includes native customizations following the **Google Antigravit
 - **Workspace Rules ([`AGENTS.md`](./AGENTS.md))**: Informs AI coding agents about Termux architecture, Bionic libc vs. glibc, npm isolation standards, and Android Gradle properties.
 - **Suite Management Skill ([`.agents/skills/termux-suite/SKILL.md`](./.agents/skills/termux-suite/SKILL.md))**: Provides runbooks for managing the suite, diagnosing errors, updating AI assistants, and verifying toolchains.
 - **Android Toolchain Skill ([`.agents/skills/termux-android/SKILL.md`](./.agents/skills/termux-android/SKILL.md))**: Complete guide and runbook for standalone APK packaging, AAPT2/D8/apksigner workflows, NDK C/C++ compilation, and Gradle configuration.
+- **Git Review Skill ([`.agents/skills/termux-git-review/SKILL.md`](./.agents/skills/termux-git-review/SKILL.md))**: Non-destructive Git inspection, diff analysis, and commit verification workflows.
+- **Security Audit Skill ([`.agents/skills/termux-security-audit/SKILL.md`](./.agents/skills/termux-security-audit/SKILL.md))**: Credential scanning, path/sandbox boundary enforcement, and destructive operation guardrails.
 
 ---
 
@@ -417,8 +419,12 @@ Termux-Dev/
 │   └── skills/
 │       ├── termux-suite/
 │       │   └── SKILL.md        # Antigravity suite management runbook
-│       └── termux-android/
-│           └── SKILL.md        # Antigravity Android & NDK development runbook
+│       ├── termux-android/
+│       │   └── SKILL.md        # Antigravity Android & NDK development runbook
+│       ├── termux-git-review/
+│       │   └── SKILL.md        # Antigravity Git inspection & review runbook
+│       └── termux-security-audit/
+│           └── SKILL.md        # Antigravity security & sandbox audit runbook
 ├── bin/
 │   └── termux-suite            # Global CLI launcher executable
 ├── 01-termux-base.sh           # Stage 01: System repos, core packages, Zsh, SSH

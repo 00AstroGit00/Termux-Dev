@@ -61,4 +61,6 @@ The project manages 5 primary AI coding assistants:
 ## 7. Antigravity Skills & Customizations
 - **`termux-suite`**: General management, verification, lock clearance, and troubleshooting.
 - **`termux-android`**: Dedicated workflows for standalone APK builds, AAPT2/D8/apksigner pipelines, NDK C/C++, and Gradle configuration.
+- **`termux-git-review`**: Non-destructive Git inspection, diff analysis, and commit verification workflows.
+- **`termux-security-audit`**: Credential scanning, path/sandbox boundary enforcement, and destructive operation guardrails.
 
