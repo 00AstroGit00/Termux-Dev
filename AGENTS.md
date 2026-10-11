@@ -39,6 +39,10 @@ The project manages 5 primary AI coding assistants:
   ```properties
   # In android/gradle.properties
   android.aapt2FromMavenOverride=/data/data/com.termux/files/usr/opt/android-sdk/build-tools/36.1.0/aapt2
+  org.gradle.vfs.watch=false
+  org.gradle.parallel=true
+  org.gradle.jvmargs=-Xmx2048m -XX:+UseG1GC -XX:MaxMetaspaceSize=512m
+  android.builder.sdkDownload=false
   
   # In android/local.properties
   sdk.dir=/data/data/com.termux/files/usr/opt/android-sdk
@@ -52,7 +56,7 @@ The project manages 5 primary AI coding assistants:
 
 ## 6. Verification & Testing
 - Run `bash setup.sh --verify` to inspect all tools across System, Compilers, Node.js, AI CLIs, and Android toolchains.
-- Run `bash test-suite.sh` to execute the full 23-point stress and verification test suite (including functional APK, DEX, and NDK Clang synthesis).
+- Run `bash test-suite.sh` to execute the full 24-point stress and verification test suite (including functional APK, DEX, and NDK Clang synthesis).
 
 ## 7. Antigravity Skills & Customizations
 - **`termux-suite`**: General management, verification, lock clearance, and troubleshooting.

@@ -134,8 +134,11 @@ persist_env() {
     local file="$1"
     touch "$file"
 
-    grep -qxF 'export PATH="$HOME/.npm-global/bin:$PATH"' "$file" || \
-        printf '%s\n' 'export PATH="$HOME/.npm-global/bin:$PATH"' >> "$file"
+    if ! grep -qF 'export PATH="$HOME/.local/bin:$HOME/.npm-global/bin' "$file"; then
+        if ! grep -qF '.npm-global/bin' "$file"; then
+            printf '%s\n' 'export PATH="$HOME/.local/bin:$HOME/.npm-global/bin:$HOME/bin:$PREFIX/bin:$PATH"' >> "$file"
+        fi
+    fi
 
     grep -qxF 'export npm_config_prefix="$HOME/.npm-global"' "$file" || \
         printf '%s\n' 'export npm_config_prefix="$HOME/.npm-global"' >> "$file"

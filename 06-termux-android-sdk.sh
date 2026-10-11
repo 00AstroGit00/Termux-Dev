@@ -150,6 +150,14 @@ if [[ -d "$ANDROID_HOME/platform-tools" ]]; then
     [[ -x "$PREFIX/bin/fastboot" ]] && ln -sf "$PREFIX/bin/fastboot" "$ANDROID_HOME/platform-tools/fastboot"
 fi
 
+# Fix Termux shebangs across NDK target compilers and toolchain binaries
+if [[ -d "$ANDROID_HOME/ndk/$NDK_VERSION/toolchains/llvm/prebuilt/linux-arm64/bin" ]]; then
+    info "Patching NDK compiler toolchain shebangs..."
+    command -v termux-fix-shebang >/dev/null 2>&1 && {
+        termux-fix-shebang "$ANDROID_HOME/ndk/$NDK_VERSION/toolchains/llvm/prebuilt/linux-arm64/bin"/* 2>/dev/null || true
+    }
+fi
+
 # -----------------------------
 # 5. Google Android CLI (android)
 # -----------------------------
@@ -175,12 +183,19 @@ if [[ -f "$ANDROID_CLI_BIN" && -f "$PREFIX/glibc/lib/ld-linux-aarch64.so.1" ]]; 
                  --set-rpath "$PREFIX/glibc/lib" \
                  "$ANDROID_CLI_BIN" 2>/dev/null || true
     fi
-    ln -sf "$ANDROID_CLI_BIN" "$HOME/.local/bin/android"
+    rm -f "$HOME/.local/bin/android"
+    cat > "$HOME/.local/bin/android" <<'WRAPPER_EOF'
+#!/data/data/com.termux/files/usr/bin/bash
+export ANDROID_HOME="${ANDROID_HOME:-/data/data/com.termux/files/usr/opt/android-sdk}"
+export ANDROID_SDK_ROOT="${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
+exec env -u LD_PRELOAD "$HOME/.android/bin/android-cli" "$@"
+WRAPPER_EOF
+    chmod +x "$HOME/.local/bin/android"
     success "Google Android CLI configured at $HOME/.local/bin/android."
 fi
 
 # -----------------------------
-# 5. Environment & Shell Setup
+# 6. Environment & Shell Setup
 # -----------------------------
 info "Configuring environment files (~/.android-env and ~/.gradle/gradle.properties)..."
 
@@ -195,8 +210,8 @@ export ANDROID_NDK_ROOT="\$ANDROID_HOME/ndk/$NDK_VERSION"
 export NDK_HOME="\$ANDROID_NDK_ROOT"
 export JAVA_HOME="$JAVA_HOME"
 
-# Android SDK build tools, cmdline tools, platform tools, and cmake
-export PATH="\$ANDROID_HOME/cmdline-tools/latest/bin:\$ANDROID_HOME/platform-tools:\$ANDROID_HOME/build-tools/$BUILD_TOOLS_VERSION:\$ANDROID_HOME/cmake/4.1.2/bin:\$PATH"
+# Android SDK build tools, cmdline tools, platform tools, NDK compilers, and cmake
+export PATH="\$ANDROID_HOME/cmdline-tools/latest/bin:\$ANDROID_HOME/platform-tools:\$ANDROID_HOME/build-tools/$BUILD_TOOLS_VERSION:\$ANDROID_HOME/cmake/4.1.2/bin:\$ANDROID_NDK_ROOT/toolchains/llvm/prebuilt/linux-arm64/bin:\$PATH"
 EOF
 chmod 644 "$ENV_FILE"
 
@@ -219,8 +234,14 @@ cat > "$GRADLE_PROP" <<EOF
 # Override maven x86_64 aapt2 with native Termux ARM64 binary
 android.aapt2FromMavenOverride=$ANDROID_HOME/build-tools/$BUILD_TOOLS_VERSION/aapt2
 
+# Disable file system watching due to Termux inotify / native JNI limits
+org.gradle.vfs.watch=false
+
+# Enable parallel execution across mobile CPU cores
+org.gradle.parallel=true
+
 # JVM Memory and Garbage Collection optimization for mobile ARM64
-org.gradle.jvmargs=-Xmx2048m -XX:+UseG1GC
+org.gradle.jvmargs=-Xmx2048m -XX:+UseG1GC -XX:MaxMetaspaceSize=512m
 
 # Disable automatic SDK download attempt (which downloads x86_64 packages)
 android.builder.sdkDownload=false

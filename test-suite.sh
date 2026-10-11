@@ -342,6 +342,18 @@ else
     test_fail "NDK Clang not executable at $NDK_CLANG"
 fi
 
+test_start "Android NDK target wrapper (aarch64-linux-android34-clang)"
+if command -v aarch64-linux-android34-clang >/dev/null 2>&1; then
+    WRAP_OUT="$(aarch64-linux-android34-clang --version 2>&1 | head -n 1 || true)"
+    if [[ "$WRAP_OUT" == *"Android clang"* ]]; then
+        test_pass "NDK target wrapper operational"
+    else
+        test_fail "NDK target wrapper returned: $WRAP_OUT"
+    fi
+else
+    test_fail "aarch64-linux-android34-clang not found on PATH"
+fi
+
 test_start "Google Android CLI (android) operational execution"
 if command -v android >/dev/null 2>&1; then
     AND_OUT="$(android --version 2>&1 | head -n 1 || true)"

@@ -171,7 +171,7 @@ You can also run specific tasks directly without the TUI:
 ./setup.sh --ai-env      # Stage 05: Setup private ~/.ai-env template
 ./setup.sh --android     # Stage 06: Android SDK, NDK & TermuxVoid setup
 ./setup.sh --verify      # Inspect status of all installed tools
-./setup.sh --test        # Run ruthless 23-point stress & verification suite
+./setup.sh --test        # Run ruthless 24-point stress & verification suite
 ./setup.sh --clean       # Remove temporary locks and cache files
 ./setup.sh --help        # Display usage information
 ```
@@ -230,8 +230,14 @@ Gradle builds automatically read [`~/.gradle/gradle.properties`](file:///data/da
 # Native Termux ARM64 AAPT2 Override
 android.aapt2FromMavenOverride=/data/data/com.termux/files/usr/opt/android-sdk/build-tools/36.1.0/aapt2
 
+# Disable file system watching due to Termux inotify / native JNI limits
+org.gradle.vfs.watch=false
+
+# Enable parallel execution across mobile CPU cores
+org.gradle.parallel=true
+
 # JVM Memory optimization for mobile SoC
-org.gradle.jvmargs=-Xmx2048m -XX:+UseG1GC
+org.gradle.jvmargs=-Xmx2048m -XX:+UseG1GC -XX:MaxMetaspaceSize=512m
 
 # Disable automatic x86_64 SDK download attempt
 android.builder.sdkDownload=false
@@ -303,7 +309,7 @@ The suite packages and maintains 5 leading terminal AI coding assistants:
 
 ## 🧪 Automated Verification & Stress Test Suite
 
-Execute the full 23-point verification suite at any time:
+Execute the full 24-point verification suite at any time:
 
 ```bash
 bash test-suite.sh
@@ -340,10 +346,11 @@ termux-suite --test
 ▶ [TEST] Android NDK LLVM Clang compiler execution ... PASS (Clang 21.0.0)
 ▶ [TEST] AAPT2 & d8 minimal APK and DEX synthesis ... PASS
 ▶ [TEST] Android NDK native C compilation (ARM64) ... PASS
+▶ [TEST] Android NDK target wrapper (aarch64-linux-android34-clang) ... PASS
 ▶ [TEST] Google Android CLI (android) operational execution ... PASS (1.0.16500706)
 
 === Test Suite Results ===
-  Passed:   23
+  Passed:   24
   Warnings: 0
   Failed:   0
 
@@ -422,7 +429,7 @@ Termux-Dev/
 ├── 06-termux-android-sdk.sh    # Stage 06: Android SDK, NDK, TermuxVoid, Java
 ├── setup.sh                    # Master orchestrator (TUI & CLI interface)
 ├── install.sh                  # One-line curl bootstrap installer
-├── test-suite.sh               # Ruthless 23-point stress & verification suite
+├── test-suite.sh               # Ruthless 24-point stress & verification suite
 ├── AGENTS.md                   # Antigravity workspace rules & guidelines
 ├── LICENSE                     # Apache 2.0 Open Source License
 ├── .shellcheckrc               # ShellCheck linting configuration
