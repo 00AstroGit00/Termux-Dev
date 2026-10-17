@@ -16,23 +16,12 @@ set -Eeuo pipefail
 
 # Ensure environment
 [[ -f "$HOME/.android-env" ]] && source "$HOME/.android-env"
+PREFIX="${PREFIX:-/data/data/com.termux/files/usr}"
+export PREFIX
 
-ANDROID_HOME="${ANDROID_HOME:-/data/data/com.termux/files/usr/opt/android-sdk}"
+ANDROID_HOME="${ANDROID_HOME:-$PREFIX/opt/android-sdk}"
 BUILD_TOOLS_VERSION="36.1.0"
 PLATFORM_JAR="$ANDROID_HOME/platforms/android-36/android.jar"
-
-# Pre-flight tool check
-for cmd in aapt2 javac d8 apksigner zip keytool; do
-    if ! command -v "$cmd" >/dev/null 2>&1; then
-        printf '\033[0;31m[ERROR]\033[0m Required tool %s is not available on PATH.\n' "$cmd" >&2
-        exit 1
-    fi
-done
-
-if [[ ! -f "$PLATFORM_JAR" ]]; then
-    printf '\033[0;31m[ERROR]\033[0m Android platform JAR not found at %s\n' "$PLATFORM_JAR" >&2
-    exit 1
-fi
 
 # Defaults
 MANIFEST="AndroidManifest.xml"
@@ -51,7 +40,7 @@ DO_INSTALL=0
 DO_SHARE=0
 USE_CACHE=1
 CLEAN_CACHE=0
-BUILD_DIR="${TMPDIR:-/data/data/com.termux/files/usr/tmp}/apk-build-$$"
+BUILD_DIR="${TMPDIR:-$PREFIX/tmp}/apk-build-$$"
 
 show_help() {
     printf 'Usage: %s [OPTIONS]\n\n' "$(basename "$0")"
@@ -98,6 +87,19 @@ while [[ $# -gt 0 ]]; do
         *) printf '\033[0;31m[ERROR]\033[0m Unknown option: %s\n' "$1" >&2; exit 1 ;;
     esac
 done
+
+# Pre-flight tool check
+for cmd in aapt2 javac d8 apksigner zip keytool; do
+    if ! command -v "$cmd" >/dev/null 2>&1; then
+        printf '\033[0;31m[ERROR]\033[0m Required tool %s is not available on PATH.\n' "$cmd" >&2
+        exit 1
+    fi
+done
+
+if [[ ! -f "$PLATFORM_JAR" ]]; then
+    printf '\033[0;31m[ERROR]\033[0m Android platform JAR not found at %s\n' "$PLATFORM_JAR" >&2
+    exit 1
+fi
 
 # Auto-detect Android Studio / Gradle project structures
 if [[ -n "$PROJECT_DIR" && -d "$PROJECT_DIR" ]]; then
