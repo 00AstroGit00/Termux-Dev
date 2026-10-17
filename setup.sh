@@ -170,12 +170,24 @@ doctor_system() {
     fi
     printf '\n'
 
-    # Wake Lock
-    printf '%s[Wake-Lock & Battery Status]%s\n' "$BOLD$YELLOW" "$NC"
+    # Battery & Power Telemetry
+    printf '%s[Battery & Power Telemetry]%s\n' "$BOLD$YELLOW" "$NC"
+    if command -v termux-battery-status >/dev/null 2>&1; then
+        local bat_json
+        bat_json="$(termux-battery-status 2>/dev/null || true)"
+        if [[ -n "$bat_json" ]]; then
+            local pct temp status health
+            pct="$(echo "$bat_json" | jq -r '.percentage // empty' 2>/dev/null || true)"
+            temp="$(echo "$bat_json" | jq -r '.temperature // empty' 2>/dev/null || true)"
+            status="$(echo "$bat_json" | jq -r '.status // empty' 2>/dev/null || true)"
+            health="$(echo "$bat_json" | jq -r '.health // empty' 2>/dev/null || true)"
+            printf '  Battery Level: %s%s%%%s (Status: %s, Temp: %s°C, Health: %s)\n' "$BOLD$GREEN" "$pct" "$NC" "$status" "$temp" "$health"
+        fi
+    fi
     if command -v termux-wake-lock >/dev/null 2>&1; then
-        printf '  termux-wake-lock: %sAvailable%s\n' "$GREEN" "$NC"
+        printf '  Wake-lock utility: %sAvailable%s\n' "$GREEN" "$NC"
     else
-        printf '  termux-wake-lock: %sNot found (install termux-api)%s\n' "$YELLOW" "$NC"
+        printf '  Wake-lock utility: %sNot found (install termux-api)%s\n' "$YELLOW" "$NC"
     fi
     printf '\n'
 
@@ -361,7 +373,15 @@ build_apk_interactive() {
     read -rp "" input_install
     local install_args=()
     if [[ "$input_install" =~ ^[Yy] ]]; then
-        install_args=("-i")
+        install_args+=("-i")
+    fi
+
+    if command -v termux-share >/dev/null 2>&1; then
+        printf 'Open / install APK via Android Package Installer? [y/N]: '
+        read -rp "" input_share
+        if [[ "$input_share" =~ ^[Yy] ]]; then
+            install_args+=("-u")
+        fi
     fi
 
     info "Starting APK synthesis with termux-apk-build..."
@@ -490,7 +510,13 @@ THEME_EOF
     while true; do
         ram_free="$(free -h 2>/dev/null | awk '/Mem:/ {print $7}' || echo 'N/A')"
         disk_free="$(df -h "${PREFIX:-/data/data/com.termux/files/usr}" 2>/dev/null | awk 'NR==2 {print $4}' || echo 'N/A')"
-        backtitle="Termux-Dev ARM64 Workstation  │  RAM: ${ram_free} Avail  │  Disk: ${disk_free} Free"
+        local bat_str=""
+        if command -v termux-battery-status >/dev/null 2>&1; then
+            local b_pct
+            b_pct="$(termux-battery-status 2>/dev/null | jq -r '.percentage // empty' 2>/dev/null || true)"
+            [[ -n "$b_pct" ]] && bat_str="  │  Bat: ${b_pct}%"
+        fi
+        backtitle="Termux-Dev ARM64 Workstation  │  RAM: ${ram_free} Avail  │  Disk: ${disk_free} Free${bat_str}"
 
         local s1_d s2_d s3_d s4_d s5_d s6_d
         get_stage_status 1 && s1_d="\Zb\Z2[✓]\Zn" || s1_d="\Zb\Z1[○]\Zn"
@@ -567,8 +593,15 @@ THEME_EOF
                 if [[ -n "$p_dir" ]]; then
                     o_apk=$(DIALOGRC="$theme_file" dialog --stdout --clear --title " Output APK " \
                         --inputbox "Enter output APK filename:" 10 60 "app-signed.apk") || o_apk="app-signed.apk"
+                    local extra_opts=()
+                    if command -v termux-share >/dev/null 2>&1; then
+                        if DIALOGRC="$theme_file" dialog --title " Install APK " \
+                            --yesno "Open generated APK with Android Package Installer upon completion?" 7 60; then
+                            extra_opts+=("-u")
+                        fi
+                    fi
                     clear
-                    "$SETUP_DIR/bin/termux-apk-build" -p "$p_dir" -o "${o_apk:-app-signed.apk}"
+                    "$SETUP_DIR/bin/termux-apk-build" -p "$p_dir" -o "${o_apk:-app-signed.apk}" "${extra_opts[@]}"
                 fi
                 ;;
             9) verify_all ;;
@@ -590,10 +623,14 @@ THEME_EOF
 }
 
 show_menu_ansi() {
-    local ram_free disk_free
+    local ram_free disk_free bat_pct
     while true; do
         ram_free="$(free -h 2>/dev/null | awk '/Mem:/ {print $7}' || echo 'N/A')"
         disk_free="$(df -h "${PREFIX:-/data/data/com.termux/files/usr}" 2>/dev/null | awk 'NR==2 {print $4}' || echo 'N/A')"
+        bat_pct=""
+        if command -v termux-battery-status >/dev/null 2>&1; then
+            bat_pct="$(termux-battery-status 2>/dev/null | jq -r '.percentage // empty' 2>/dev/null || true)"
+        fi
 
         local s1_a s2_a s3_a s4_a s5_a s6_a
         get_stage_status 1 && s1_a="${GREEN}${BOLD}[✓]${NC}" || s1_a="${YELLOW}[○]${NC}"
@@ -606,7 +643,11 @@ show_menu_ansi() {
         clear 2>/dev/null || true
         printf '%s╭───────────────────────────────────────────────────────────────────╮%s\n' "$CYAN" "$NC"
         printf '%s│%s   🚀 \033[1;37mTermux Developer & AI Suite\033[0m \033[1;36m(ARM64 / aarch64)\033[0m              %s│%s\n' "$CYAN" "$BOLD" "$CYAN" "$NC"
-        printf '%s│%s   Arch: \033[1;33maarch64\033[0m │ RAM Avail: \033[1;32m%-7s\033[0m │ Free Disk: \033[1;32m%-8s\033[0m    %s│%s\n' "$CYAN" "$NC" "$ram_free" "$disk_free" "$CYAN" "$NC"
+        if [[ -n "$bat_pct" ]]; then
+            printf '%s│%s   Arch: \033[1;33maarch64\033[0m │ RAM: \033[1;32m%-6s\033[0m │ Disk: \033[1;32m%-7s\033[0m │ Bat: \033[1;32m%-4s\033[0m   %s│%s\n' "$CYAN" "$NC" "$ram_free" "$disk_free" "${bat_pct}%" "$CYAN" "$NC"
+        else
+            printf '%s│%s   Arch: \033[1;33maarch64\033[0m │ RAM Avail: \033[1;32m%-7s\033[0m │ Free Disk: \033[1;32m%-8s\033[0m    %s│%s\n' "$CYAN" "$NC" "$ram_free" "$disk_free" "$CYAN" "$NC"
+        fi
         printf '%s╰───────────────────────────────────────────────────────────────────╯%s\n\n' "$CYAN" "$NC"
 
         printf ' %s%s┌── [1] COMPLETE WORKSTATION PIPELINE ────────────────────────────┐%s\n' "$BOLD" "$BLUE" "$NC"

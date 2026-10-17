@@ -18,7 +18,7 @@ _apk_build_completions() {
     COMPREPLY=()
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
-    opts="-p --project -m --manifest -s --src -r --res -l --lib -j --jars -o --output -i --install --min-sdk --target-sdk -k --keystore --alias --pass -h --help"
+    opts="-p --project -m --manifest -s --src -r --res -l --lib -j --jars -o --output -i --install -u --share --min-sdk --target-sdk -k --keystore --alias --pass -h --help"
 
     case "$prev" in
         -p|--project|-s|--src|-r|--res|-l|--lib)
