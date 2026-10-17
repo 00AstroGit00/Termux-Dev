@@ -67,11 +67,15 @@ termux-apk-build -m AndroidManifest.xml -s src/ -r res/ -l lib/ -j libs/ -i -o a
 # Incremental cache management:
 termux-apk-build -p /path/to/project --clean-cache # Purge cache
 termux-apk-build -p /path/to/project --no-cache    # Bypass cache
+
+# Audit and inspect APK metadata, 16KB alignment, signature & DEX structure:
+termux-apk-build --inspect app-signed.apk
 ```
 
 Features:
 - Sub-second build speed with 0 MB background JVM memory footprint.
 - **Incremental AAPT2 build caching** (`.apk-cache/`), reducing rebuild times to sub-300ms.
+- **APK Auditing & Inspection** (`-a, --inspect`) to verify package metadata, 16KB page alignment, v1/v2/v3 signatures, and DEX/ABI structure.
 - Full multi-DEX support (`classes*.dex`) and external `.jar` bytecode compilation.
 - Bundles uncompressed native libraries (`.so`) for Android 15+ direct `mmap()`.
 - Enforces strict 16KB page-boundary alignment (`zipalign -P 16 -f 4`).

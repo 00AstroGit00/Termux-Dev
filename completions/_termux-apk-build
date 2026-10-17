@@ -9,6 +9,7 @@ _termux_apk_build() {
         '(-l --lib)'{-l,--lib}'[Path to native libraries directory]:directory:_files -/' \
         '(-j --jars)'{-j,--jars}'[Path to JAR file or library directory]:file or directory:_files' \
         '(-o --output)'{-o,--output}'[Path for output signed APK]:output file:_files -g "*.apk"' \
+        '(-a --inspect --audit)'{-a,--inspect,--audit}'[Audit and inspect APK metadata, 16KB alignment, signature & DEX]:apk file:_files -g "*.apk"' \
         '(-i --install)'{-i,--install}'[Automatically install APK via ADB after compilation]' \
         '(-u --share)'{-u,--share}'[Share or install APK via Android package installer]' \
         '--no-cache[Disable incremental AAPT2 resource caching]' \

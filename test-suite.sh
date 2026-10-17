@@ -588,6 +588,20 @@ else
     test_warn "ccache or clang not installed"
 fi
 
+test_start "APK audit & inspection verification (termux-apk-build --inspect)"
+if [[ -f "$TMP_TEST_DIR/cli_app/built.apk" ]]; then
+    APK_INSPECT_CMD="[[ -x \"$SETUP_DIR/bin/termux-apk-build\" ]] && echo \"$SETUP_DIR/bin/termux-apk-build\" || command -v termux-apk-build"
+    APK_INSPECT_CMD="$(eval "$APK_INSPECT_CMD")"
+    inspect_out="$("$APK_INSPECT_CMD" --inspect "$TMP_TEST_DIR/cli_app/built.apk" 2>&1 || true)"
+    if [[ "$inspect_out" =~ "VERIFIED 16KB PAGE-ALIGNED" ]] && [[ "$inspect_out" =~ "SIGNATURE VALID" ]]; then
+        test_pass "termux-apk-build --inspect successfully audited APK metadata, alignment & signature"
+    else
+        test_fail "termux-apk-build --inspect audit failed to verify APK"
+    fi
+else
+    test_fail "sample APK not found for inspection test"
+fi
+
 test_start "ShellCheck linting validation across all repository scripts"
 if command -v shellcheck >/dev/null 2>&1; then
     if (cd "$SETUP_DIR" && shellcheck ./*.sh bin/* completions/*.bash) >/dev/null 2>&1; then

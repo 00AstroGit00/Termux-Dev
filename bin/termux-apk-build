@@ -42,6 +42,88 @@ USE_CACHE=1
 CLEAN_CACHE=0
 BUILD_DIR="${TMPDIR:-$PREFIX/tmp}/apk-build-$$"
 
+inspect_apk() {
+    local target_apk="$1"
+    if [[ ! -f "$target_apk" ]]; then
+        printf '\033[0;31m[ERROR]\033[0m APK file not found at: %s\n' "$target_apk" >&2
+        exit 1
+    fi
+
+    local size_str
+    size_str="$(du -h "$target_apk" 2>/dev/null | awk '{print $1}' || echo "unknown")"
+    printf '\n\033[1;36m=== Android APK Audit & Inspection Report ===\033[0m\n\n'
+    printf '\033[1;33m[Target APK]\033[0m %s (Size: %s)\n\n' "$target_apk" "$size_str"
+
+    # 1. Package Badging & Metadata
+    printf '\033[1;33m[1. Package Metadata & Permissions]\033[0m\n'
+    if command -v aapt2 >/dev/null 2>&1; then
+        local badge pkg_line app_label launch_act
+        badge="$(aapt2 dump badging "$target_apk" 2>/dev/null || true)"
+        if [[ -n "$badge" ]]; then
+            pkg_line="$(echo "$badge" | grep '^package:' | head -n 1 || true)"
+            app_label="$(echo "$badge" | grep '^application:' | head -n 1 || true)"
+            launch_act="$(echo "$badge" | grep '^launchable-activity:' | head -n 1 || true)"
+            [[ -n "$pkg_line" ]] && printf '  %s\n' "$pkg_line"
+            [[ -n "$app_label" ]] && printf '  %s\n' "$app_label"
+            [[ -n "$launch_act" ]] && printf '  %s\n' "$launch_act"
+            printf '  Permissions:\n'
+            echo "$badge" | grep -E '^uses-permission:' | sed 's/^uses-permission: name=/    • /' | tr -d "'" || true
+        else
+            printf '  Could not extract metadata via aapt2.\n'
+        fi
+    fi
+    printf '\n'
+
+    # 2. 16KB Page-Alignment Audit (Android 15+)
+    printf '\033[1;33m[2. Memory Page Alignment (Android 15+ 16KB Compatibility)]\033[0m\n'
+    if command -v zipalign >/dev/null 2>&1; then
+        if zipalign -c -P 16 4 "$target_apk" >/dev/null 2>&1; then
+            printf '  Status: \033[0;32mVERIFIED 16KB PAGE-ALIGNED\033[0m (zipalign -P 16 4 audit passed)\n'
+        else
+            printf '  Status: \033[0;31mFAILED 16KB AUDIT\033[0m (APK is not aligned to 16KB page boundaries)\n'
+        fi
+    else
+        printf '  zipalign utility not found on PATH.\n'
+    fi
+    printf '\n'
+
+    # 3. Signature Scheme Verification
+    printf '\033[1;33m[3. APK Signing Verification]\033[0m\n'
+    if command -v apksigner >/dev/null 2>&1; then
+        local sig_out
+        sig_out="$(apksigner verify --verbose "$target_apk" 2>&1 || true)"
+        if [[ "$sig_out" =~ "Verifies" ]]; then
+            printf '  Status: \033[0;32mSIGNATURE VALID\033[0m\n'
+            echo "$sig_out" | grep -E 'Verified using|Signer #' | sed 's/^/    /' || true
+        else
+            printf '  Status: \033[0;31mSIGNATURE INVALID OR UNSIGNED\033[0m\n'
+            echo "$sig_out" | head -n 5 | sed 's/^/    /' || true
+        fi
+    else
+        printf '  apksigner utility not found on PATH.\n'
+    fi
+    printf '\n'
+
+    # 4. Bytecode & Native ABI Structure
+    printf '\033[1;33m[4. Bytecode & Native ABIs]\033[0m\n'
+    if command -v unzip >/dev/null 2>&1; then
+        local dex_files so_files dex_count
+        dex_files="$(unzip -l "$target_apk" 2>/dev/null | grep -E 'classes[0-9]*\.dex' || true)"
+        so_files="$(unzip -l "$target_apk" 2>/dev/null | grep -E 'lib/.+/.+\.so' || true)"
+        dex_count="$(echo "$dex_files" | grep -c '\.dex' || echo 0)"
+        printf '  DEX Files: %s file(s)\n' "$dex_count"
+        echo "$dex_files" | awk '{printf "    • %-16s %s bytes\n", $4, $1}' || true
+        if [[ -n "$so_files" ]]; then
+            printf '  Native Shared Libraries:\n'
+            echo "$so_files" | awk '{printf "    • %-30s %s bytes\n", $4, $1}' || true
+        else
+            printf '  Native Shared Libraries: None (Pure Java/Kotlin APK)\n'
+        fi
+    fi
+    printf '\n'
+    exit 0
+}
+
 show_help() {
     printf 'Usage: %s [OPTIONS]\n\n' "$(basename "$0")"
     printf 'Options:\n'
@@ -52,6 +134,7 @@ show_help() {
     printf '  -l, --lib <dir>        Path to native libraries directory containing lib/<abi>/*.so (optional)\n'
     printf '  -j, --jars <path>      Path to JAR file or directory containing external dependencies (optional)\n'
     printf '  -o, --output <file>    Path for output signed APK (default: app-signed.apk)\n'
+    printf '  -a, --inspect <apk>    Audit and inspect APK metadata, 16KB alignment, signature & DEX\n'
     printf '  -i, --install          Automatically install APK via adb upon successful build\n'
     printf '  -u, --share            Share/install APK via Android package installer\n'
     printf '      --no-cache         Disable incremental AAPT2 resource caching\n'
@@ -74,6 +157,10 @@ while [[ $# -gt 0 ]]; do
         -l|--lib)        LIB_DIR="$2"; shift 2 ;;
         -j|--jars)       JAR_DIR="$2"; shift 2 ;;
         -o|--output)     OUTPUT_APK="$2"; shift 2 ;;
+        -a|--inspect|--audit)
+            [[ -n "${2:-}" ]] || { printf '\033[0;31m[ERROR]\033[0m Missing APK file argument for %s\n' "$1" >&2; exit 1; }
+            inspect_apk "$2"
+            ;;
         -i|--install)    DO_INSTALL=1; shift ;;
         -u|--share)      DO_SHARE=1; shift ;;
         --no-cache)      USE_CACHE=0; shift ;;

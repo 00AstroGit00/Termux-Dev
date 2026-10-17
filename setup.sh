@@ -755,7 +755,7 @@ show_quick_help_ansi() {
     printf '  %s[8/K]%s Standalone APK Builder  : Sub-second zero-Gradle APK compilation engine.\n' "$BOLD$GREEN" "$NC"
     printf '  %s[9/Y]%s Wireless ADB Helper     : Android 11+ on-device wireless debugging.\n' "$BOLD$GREEN" "$NC"
     printf ' %s[10/V]%s Verify All Toolchains   : Status report of all compilers, SDKs, and CLIs.\n' "$BOLD$GREEN" "$NC"
-    printf ' %s[11/T]%s 34-Point Stress Suite   : Full regression test verifying locks, DEX, APK, NDK, ccache.\n' "$BOLD$GREEN" "$NC"
+    printf ' %s[11/T]%s 35-Point Stress Suite   : Full regression test verifying locks, DEX, APK, NDK, ccache, audit.\n' "$BOLD$GREEN" "$NC"
     printf ' %s[12/H]%s System Doctor           : Real-time RAM, storage, and platform diagnostics.\n' "$BOLD$GREEN" "$NC"
     printf ' %s[13/X]%s Developer Extra-Keys    : Fast mobile coding keyboard bar in Termux.\n' "$BOLD$YELLOW" "$NC"
     printf ' %s[14/P]%s Disable PPK             : Remove 32-child-process background restriction.\n' "$BOLD$YELLOW" "$NC"
@@ -771,8 +771,9 @@ show_quick_help_ansi() {
     printf '  tsuite --restore       : Restore environment from encrypted vault\n'
     printf '  tsuite --adb           : Android 11+ wireless ADB pairing helper\n'
     printf '  termux-apk-build -p .  : Compile current Android project into signed APK\n'
+    printf '  termux-apk-build -a app.apk : Audit and inspect APK metadata & 16KB alignment\n'
     printf '  tsuite --doctor        : Run system health diagnostics\n'
-    printf '  tsuite --test          : Run 34-point stress test\n\n'
+    printf '  tsuite --test          : Run 35-point stress test\n\n'
     printf '%sPress Enter to return to the interactive menu...%s' "$BOLD$CYAN" "$NC"
     read -r
 }
@@ -866,7 +867,7 @@ THEME_EOF
             "8"  "⚡ Build Android APK (Sub-Second Engine)" \
             "9"  "📶 Wireless ADB Pairing & Connect (Android 11+)" \
             "10" "✓  Verify All Installed Tools & CLIs" \
-            "11" "🧪 Run Ruthless 34-Point Stress Test Suite" \
+            "11" "🧪 Run Ruthless 35-Point Stress Test Suite" \
             "12" "🩺 System Doctor: Health & Diagnostics" \
             "13" "⌨️  Configure Developer Extra-Keys" \
             "14" "🔋 Disable Phantom Process Killer" \
@@ -997,7 +998,7 @@ show_menu_ansi() {
         printf '   %s[8/K]%s  ⚡ Build Android APK (Sub-Second Zero-Gradle Engine)\n' "$BOLD$GREEN" "$NC"
         printf '   %s[9/Y]%s  📶 Wireless ADB Pairing & Connect (Android 11+)\n' "$BOLD$GREEN" "$NC"
         printf '  %s[10/V]%s  ✓  Verify All Installed Compilers, SDKs & Toolchains\n' "$BOLD$GREEN" "$NC"
-        printf '  %s[11/T]%s  🧪 Run Ruthless 34-Point Stress & Verification Suite\n' "$BOLD$GREEN" "$NC"
+        printf '  %s[11/T]%s  🧪 Run Ruthless 35-Point Stress & Verification Suite\n' "$BOLD$GREEN" "$NC"
         printf '  %s[12/H]%s  🩺 System Doctor: Hardware, RAM & Stability Diagnostics\n' "$BOLD$GREEN" "$NC"
         printf ' %s└───────────────────────────────────────────────────────────────────┘%s\n\n' "$GREEN" "$NC"
 

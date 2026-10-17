@@ -70,7 +70,7 @@ Stock Termux is lightweight, but turning it into a complete, professional softwa
   - **GitHub Copilot (`copilot`)**: Glibc runtime-bridged binary with seamless device auth
 - **🔒 Kernel Concurrency Locking**: Every stage uses kernel-managed `flock` locks, preventing race conditions or corrupted partial runs while remaining immune to stale lockfiles after crashes.
 - **🛡️ Clean Shell & Secret Isolation**: Dual-shell parity for Bash and Zsh, user-global npm prefix (`~/.npm-global`), isolated private keys (`~/.ai-env` with `0600` permissions), and persistent environment profiles (`~/.android-env`).
-- **🧪 Ruthless 34-Point Stress Test Suite**: Rigorously tests file locks, PATH precedence, permissions, shebang integrity, compilers, all 5 AI engines, the complete Android SDK/NDK toolchain, Android Studio project auto-detection, external JAR library synthesis, ShellCheck lint validation, ccache compiler caching, and Android 15+ 16KB page-aligned APK generation.
+- **🧪 Ruthless 35-Point Stress Test Suite**: Rigorously tests file locks, PATH precedence, permissions, shebang integrity, compilers, all 5 AI engines, the complete Android SDK/NDK toolchain, Android Studio project auto-detection, external JAR library synthesis, ShellCheck lint validation, ccache compiler caching, APK inspection & auditing, and Android 15+ 16KB page-aligned APK generation.
 
 ---
 
@@ -99,7 +99,7 @@ Stock Termux is lightweight, but turning it into a complete, professional softwa
                               │
                               ▼
   ┌────────────────────────────────────────────────────────┐
-  │        Ruthless 34-Point Automated Test Suite          │
+  │        Ruthless 35-Point Automated Test Suite          │
   └────────────────────────────────────────────────────────┘
 ```
 
@@ -154,7 +154,7 @@ tsuite
  │  8   ⚡ Build Android APK (Sub-Second Engine)                          │
  │  9   📶 Wireless ADB Pairing & Connect (Android 11+)                  │
  │ 10   ✓  Verify All Installed Tools & CLIs                             │
- │ 11   🧪 Run Ruthless 34-Point Stress Test Suite                       │
+ │ 11   🧪 Run Ruthless 35-Point Stress Test Suite                       │
  │ 12   🩺 System Doctor: Health & Diagnostics                           │
  │ 13   ⌨️  Configure Developer Extra-Keys                                │
  │ 14   🔋 Disable Phantom Process Killer                                │
@@ -173,9 +173,9 @@ When running in environments where ncurses is unavailable or over serial/SSH, th
 - `1` or `A` — Run Complete Pipeline
 - `W` — Custom Multi-Stage Selection Wizard (interactive checklist)
 - `2` or `B` — Stage 01: Base System & Zsh
-- `8` or `K` — Build Android APK (Sub-second with AAPT2 incremental cache)
+- `8` or `K` — Build Android APK (Sub-second with AAPT2 incremental cache & `--inspect` audit)
 - `9` or `Y` — Android 11+ Wireless ADB Pairing & Connect
-- `11` or `T` — Run 34-Point Stress Test Suite
+- `11` or `T` — Run 35-Point Stress Test Suite
 - `12` or `H` — System Doctor & Diagnostics
 - `16` or `L` — Encrypted Developer Vault (AES-256-CBC backup/restore)
 - `0` or `Q` — Exit to Shell
@@ -384,7 +384,7 @@ The suite packages and maintains 5 leading terminal AI coding assistants:
 
 ## 🧪 Automated Verification & Stress Test Suite
 
-Execute the full 34-point verification suite at any time:
+Execute the full 35-point verification suite at any time:
 
 ```bash
 bash test-suite.sh
@@ -432,10 +432,11 @@ termux-suite --test
 ▶ [TEST] AAPT2 incremental build cache verification (termux-apk-build) ... PASS
 ▶ [TEST] Encrypted developer vault roundtrip (OpenSSL AES-256-CBC) ... PASS
 ▶ [TEST] Compiler cache (ccache) compilation & caching verification ... PASS
+▶ [TEST] APK audit & inspection verification (termux-apk-build --inspect) ... PASS
 ▶ [TEST] ShellCheck linting validation across all repository scripts ... PASS
 
 === Test Suite Results ===
-  Passed:   34
+  Passed:   35
   Warnings: 0
   Failed:   0
 
