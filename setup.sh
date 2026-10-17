@@ -92,6 +92,9 @@ echo "Running pre-commit validation..."
 for script in *.sh bin/*; do
     if [[ -f "$script" ]]; then
         bash -n "$script" || { echo "[ERROR] Syntax validation failed: $script"; exit 1; }
+        if command -v shellcheck >/dev/null 2>&1; then
+            shellcheck "$script" || { echo "[ERROR] ShellCheck linting failed: $script"; exit 1; }
+        fi
         if [[ ! -x "$script" ]]; then
             chmod +x "$script"
         fi
@@ -101,6 +104,67 @@ echo "Pre-commit checks passed cleanly."
 HOOK_EOF
     chmod +x "$hook_dir/pre-commit"
     success "Pre-commit hook installed at $hook_dir/pre-commit."
+}
+
+clean_system() {
+    info "Clearing temporary files, stale locks, and package cache..."
+    rm -rf "${TMPDIR:-$PREFIX/tmp}"/*.lock \
+           "${TMPDIR:-$PREFIX/tmp}"/ai-cli-suite* \
+           "${TMPDIR:-$PREFIX/tmp}"/apk-build-* \
+           "${TMPDIR:-$PREFIX/tmp}"/test-suite-* 2>/dev/null || true
+
+    if command -v apt-get >/dev/null 2>&1; then
+        info "Cleaning apt package cache archives..."
+        apt-get clean >/dev/null 2>&1 || true
+        rm -rf /data/data/com.termux/cache/apt/archives/*.deb 2>/dev/null || true
+    fi
+
+    success "Temporary locks and package cache cleared."
+}
+
+doctor_system() {
+    printf '\n%s=== Termux System Health & Environment Diagnostics ===%s\n\n' "$BOLD$CYAN" "$NC"
+
+    # Disk Space
+    printf '%s[Storage]%s\n' "$BOLD$YELLOW" "$NC"
+    df -h "${PREFIX:-/data/data/com.termux/files/usr}" "${HOME}" 2>/dev/null | awk 'NR==1 || /data/'
+    printf '\n'
+
+    # RAM
+    printf '%s[Memory (RAM)]%s\n' "$BOLD$YELLOW" "$NC"
+    free -h 2>/dev/null || free -m
+    printf '\n'
+
+    # Phantom Process Killer
+    printf '%s[Process Management & Android 12+ Stability]%s\n' "$BOLD$YELLOW" "$NC"
+    if su -c true >/dev/null 2>&1; then
+        local max_phantom
+        max_phantom="$(su -c '/system/bin/device_config get activity_manager max_phantom_processes' 2>/dev/null || echo 'unknown')"
+        printf '  Root access: %sAvailable%s\n' "$GREEN" "$NC"
+        printf '  Phantom Process Killer max_phantom_processes: %s%s%s\n' "$BOLD" "$max_phantom" "$NC"
+    else
+        printf '  Root access: %sNot detected (check Wireless ADB tuning instructions)%s\n' "$YELLOW" "$NC"
+    fi
+    printf '\n'
+
+    # Wake Lock
+    printf '%s[Wake-Lock & Battery Status]%s\n' "$BOLD$YELLOW" "$NC"
+    if command -v termux-wake-lock >/dev/null 2>&1; then
+        printf '  termux-wake-lock: %sAvailable%s\n' "$GREEN" "$NC"
+    else
+        printf '  termux-wake-lock: %sNot found (install termux-api)%s\n' "$YELLOW" "$NC"
+    fi
+    printf '\n'
+
+    # Canonical PATH
+    printf '%s[PATH Order Verification]%s\n' "$BOLD$YELLOW" "$NC"
+    printf '  PATH: %s\n' "$PATH"
+    if [[ "$PATH" == "$HOME/.local/bin:$HOME/.npm-global/bin:"* ]]; then
+        printf '  Order: %sCanonical (~/.local/bin precedes ~/.npm-global/bin)%s\n' "$GREEN" "$NC"
+    else
+        printf '  Order: %sNon-canonical PATH detected%s\n' "$YELLOW" "$NC"
+    fi
+    printf '\n'
 }
 
 run_stage() {
@@ -203,10 +267,11 @@ show_dialog_tui() {
             "7" "Stage 06: Android SDK, NDK & TermuxVoid Toolchains" \
             "8" "Verify All Installed Tools" \
             "9" "Run Ruthless Stress & Verification Test Suite" \
-            "10" "Clean Locks & Temporary Files" \
+            "10" "Clean Package Cache, Temp Files & Locks" \
             "11" "Prune Unused NDK Sysroots (Save ~600MB)" \
             "12" "Tune Device: Disable Phantom Process Killer" \
             "13" "Install Local Git Pre-Commit Hook" \
+            "14" "System Doctor: Health & Stability Diagnostics" \
             "0" "Exit" \
             2>&1 >/dev/tty) || break
 
@@ -229,13 +294,11 @@ show_dialog_tui() {
             7) run_stage "06-termux-android-sdk.sh" "Stage 06: Android SDK & NDK Toolchain" ;;
             8) verify_all ;;
             9) bash "$SETUP_DIR/test-suite.sh" ;;
-            10)
-                rm -rf "${TMPDIR:-$PREFIX/tmp}"/*.lock "${TMPDIR:-$PREFIX/tmp}"/ai-cli-suite* 2>/dev/null || true
-                success "Temporary locks cleared."
-                ;;
+            10) clean_system ;;
             11) prune_ndk ;;
             12) tune_device ;;
             13) install_git_hooks ;;
+            14) doctor_system ;;
             0) break ;;
         esac
 
@@ -264,13 +327,14 @@ show_menu() {
     printf '  7) Stage 06: Android SDK, NDK & TermuxVoid Toolchains\n'
     printf '  8) Verify All Installed Tools\n'
     printf '  9) Run Ruthless Stress & Verification Test Suite\n'
-    printf ' 10) Clean Locks & Temporary Files\n'
+    printf ' 10) Clean Package Cache, Temp Files & Locks\n'
     printf ' 11) Prune Unused NDK Sysroots (Save ~600MB)\n'
     printf ' 12) Tune Device: Disable Phantom Process Killer\n'
     printf ' 13) Install Local Git Pre-Commit Hook\n'
+    printf ' 14) System Doctor: Health & Stability Diagnostics\n'
     printf '  0) Exit\n\n'
 
-    read -rp "Select an option [0-13]: " choice
+    read -rp "Select an option [0-14]: " choice
     case "$choice" in
         1)
             run_stage "01-termux-base.sh" "Stage 01: Termux Base Setup"
@@ -288,22 +352,12 @@ show_menu() {
         6) run_stage "05-ai-env.sh" "Stage 05: AI Environment & Credentials" ;;
         7) run_stage "06-termux-android-sdk.sh" "Stage 06: Android SDK & NDK Toolchain" ;;
         8) verify_all ;;
-        9)
-            bash "$SETUP_DIR/test-suite.sh"
-            ;;
-        10)
-            rm -rf "${TMPDIR:-$PREFIX/tmp}"/*.lock "${TMPDIR:-$PREFIX/tmp}"/ai-cli-suite* 2>/dev/null || true
-            success "Temporary locks cleared."
-            ;;
-        11)
-            prune_ndk
-            ;;
-        12)
-            tune_device
-            ;;
-        13)
-            install_git_hooks
-            ;;
+        9) bash "$SETUP_DIR/test-suite.sh" ;;
+        10) clean_system ;;
+        11) prune_ndk ;;
+        12) tune_device ;;
+        13) install_git_hooks ;;
+        14) doctor_system ;;
         0|q|Q)
             info "Exiting."
             exit 0
@@ -347,12 +401,14 @@ if [[ $# -gt 0 ]]; then
         --verify)
             verify_all
             ;;
+        --doctor|--health)
+            doctor_system
+            ;;
         --test|--smoke-test)
             bash "$SETUP_DIR/test-suite.sh"
             ;;
         --clean)
-            rm -rf "${TMPDIR:-$PREFIX/tmp}"/*.lock "${TMPDIR:-$PREFIX/tmp}"/ai-cli-suite* 2>/dev/null || true
-            success "Temporary locks cleared."
+            clean_system
             ;;
         --prune-ndk)
             prune_ndk
@@ -374,11 +430,12 @@ if [[ $# -gt 0 ]]; then
             printf '  --ai-env         Execute Stage 05: AI Environment Setup\n'
             printf '  --android        Execute Stage 06: Android SDK & NDK Setup\n'
             printf '  --verify         Verify all installed tools\n'
+            printf '  --doctor         Run Termux system health & environment diagnostics\n'
             printf '  --test           Run ruthless stress & verification test suite\n'
             printf '  --prune-ndk      Prune unused NDK sysroots (saves ~600MB storage)\n'
             printf '  --tune-device    Disable Phantom Process Killer (root or ADB guidance)\n'
             printf '  --install-hooks  Install local Git pre-commit verification hook\n'
-            printf '  --clean          Remove locks and temporary files\n'
+            printf '  --clean          Remove locks, temp files, and apt package archives\n'
             printf '  --help           Display this help message\n'
             exit 0
             ;;

@@ -69,7 +69,7 @@ Stock Termux is lightweight, but turning it into a complete, professional softwa
   - **GitHub Copilot (`copilot`)**: Glibc runtime-bridged binary with seamless device auth
 - **🔒 Kernel Concurrency Locking**: Every stage uses kernel-managed `flock` locks, preventing race conditions or corrupted partial runs while remaining immune to stale lockfiles after crashes.
 - **🛡️ Clean Shell & Secret Isolation**: Dual-shell parity for Bash and Zsh, user-global npm prefix (`~/.npm-global`), isolated private keys (`~/.ai-env` with `0600` permissions), and persistent environment profiles (`~/.android-env`).
-- **🧪 Ruthless 28-Point Stress Test Suite**: Rigorously tests file locks, PATH precedence, permissions, shebang integrity, compilers, all 5 AI engines, the complete Android SDK/NDK toolchain, Android Studio project auto-detection, and Android 15+ 16KB page-aligned APK generation.
+- **🧪 Ruthless 30-Point Stress Test Suite**: Rigorously tests file locks, PATH precedence, permissions, shebang integrity, compilers, all 5 AI engines, the complete Android SDK/NDK toolchain, Android Studio project auto-detection, external JAR library synthesis, ShellCheck lint validation, and Android 15+ 16KB page-aligned APK generation.
 
 ---
 
@@ -98,7 +98,7 @@ Stock Termux is lightweight, but turning it into a complete, professional softwa
                               │
                               ▼
   ┌────────────────────────────────────────────────────────┐
-  │        Ruthless 28-Point Automated Test Suite          │
+  │        Ruthless 30-Point Automated Test Suite          │
   └────────────────────────────────────────────────────────┘
 ```
 
@@ -278,6 +278,33 @@ Supported NDK cross-compilation targets:
 - `i686-linux-android` (x86)
 - `riscv64-linux-android` (RISC-V 64)
 
+### Standalone Zero-Gradle APK Builder (`termux-apk-build`)
+
+Compile, package, 16KB-align, sign, and optionally install Android apps directly on-device in under 1 second without Gradle daemon memory overhead:
+
+```bash
+# Auto-detect standard Android Studio / Gradle project layouts:
+termux-apk-build -p /path/to/android-project
+
+# Auto-detect project, include external library JARs, and deploy via ADB:
+termux-apk-build -p /path/to/android-project -i
+
+# Manual build with custom manifest, sources, and external libraries:
+termux-apk-build -m AndroidManifest.xml -s src/ -j libs/ -o app-release.apk
+
+# Options:
+#   -p, --project <dir>    Android Studio project root (auto-detects app/src/main/...)
+#   -m, --manifest <file>  Path to AndroidManifest.xml
+#   -s, --src <dir>        Path to Java/Kotlin source directory
+#   -r, --res <dir>        Path to Android resources directory
+#   -l, --lib <dir>        Path to native .so shared libraries (stored uncompressed for 16KB mmap)
+#   -j, --jars <path>      Path to external JAR dependency file or libs directory
+#   -i, --install          Auto-install APK onto target device via adb upon build
+#   -o, --output <file>    Path for output signed APK (default: app-signed.apk)
+#       --min-sdk <num>    Set minimum SDK version
+#       --target-sdk <num> Set target SDK version
+```
+
 ### Official Google Android CLI (`android`)
 
 The workstation integrates Google's official Android CLI (`android`) bridged for ARM64:
@@ -310,7 +337,7 @@ The suite packages and maintains 5 leading terminal AI coding assistants:
 
 ## 🧪 Automated Verification & Stress Test Suite
 
-Execute the full 28-point verification suite at any time:
+Execute the full 30-point verification suite at any time:
 
 ```bash
 bash test-suite.sh
@@ -353,9 +380,11 @@ termux-suite --test
 ▶ [TEST] Android NDK native C++20 STL compilation (ARM64) ... PASS
 ▶ [TEST] Android NDK target wrapper (aarch64-linux-android34-clang) ... PASS
 ▶ [TEST] Google Android CLI (android) operational execution ... PASS (1.0.16625370)
+▶ [TEST] APK builder with external JAR dependency synthesis (termux-apk-build -j) ... PASS
+▶ [TEST] ShellCheck linting validation across all repository scripts ... PASS
 
 === Test Suite Results ===
-  Passed:   28
+  Passed:   30
   Warnings: 0
   Failed:   0
 

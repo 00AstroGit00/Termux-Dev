@@ -466,6 +466,59 @@ else
     test_fail "android executable not found on PATH"
 fi
 
+test_start "APK builder with external JAR dependency synthesis (termux-apk-build -j)"
+if command -v termux-apk-build >/dev/null 2>&1 || [[ -x "$SETUP_DIR/bin/termux-apk-build" ]]; then
+    APK_BUILD_CMD="$(command -v termux-apk-build 2>/dev/null || echo "$SETUP_DIR/bin/termux-apk-build")"
+    mkdir -p "$TMP_TEST_DIR/jar_proj/src/com/jarapp" "$TMP_TEST_DIR/jar_proj/libs" "$TMP_TEST_DIR/lib_src/com/helper" "$TMP_TEST_DIR/lib_classes"
+    cat > "$TMP_TEST_DIR/lib_src/com/helper/MathUtil.java" <<'EOF'
+package com.helper;
+public class MathUtil {
+    public static int add(int a, int b) { return a + b; }
+}
+EOF
+    javac -d "$TMP_TEST_DIR/lib_classes" "$TMP_TEST_DIR/lib_src/com/helper/MathUtil.java"
+    jar cf "$TMP_TEST_DIR/jar_proj/libs/mathutil.jar" -C "$TMP_TEST_DIR/lib_classes" .
+
+    cat > "$TMP_TEST_DIR/jar_proj/AndroidManifest.xml" <<'EOF'
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.jarapp">
+    <application android:label="JarApp" />
+</manifest>
+EOF
+    cat > "$TMP_TEST_DIR/jar_proj/src/com/jarapp/MainActivity.java" <<'EOF'
+package com.jarapp;
+import com.helper.MathUtil;
+public class MainActivity {
+    public static void run() {
+        int res = MathUtil.add(10, 20);
+    }
+}
+EOF
+    if "$APK_BUILD_CMD" -m "$TMP_TEST_DIR/jar_proj/AndroidManifest.xml" \
+                        -s "$TMP_TEST_DIR/jar_proj/src" \
+                        -j "$TMP_TEST_DIR/jar_proj/libs" \
+                        -o "$TMP_TEST_DIR/jar_proj/app.apk" >/dev/null 2>&1 && \
+       apksigner verify "$TMP_TEST_DIR/jar_proj/app.apk" >/dev/null 2>&1 && \
+       zipalign -c -P 16 4 "$TMP_TEST_DIR/jar_proj/app.apk" >/dev/null 2>&1; then
+        test_pass "termux-apk-build integrated external JAR and passed 16KB verification"
+    else
+        test_fail "external JAR dependency build failed"
+    fi
+else
+    test_fail "termux-apk-build executable not found"
+fi
+
+test_start "ShellCheck linting validation across all repository scripts"
+if command -v shellcheck >/dev/null 2>&1; then
+    if (cd "$SETUP_DIR" && shellcheck ./*.sh bin/*) >/dev/null 2>&1; then
+        test_pass "all shell scripts passed ShellCheck without warnings"
+    else
+        test_fail "ShellCheck reported lint warnings on repository scripts"
+    fi
+else
+    test_warn "shellcheck not installed; run 'pkg install shellcheck'"
+fi
+
 # -------------------------------------------------------------
 # Summary
 # -------------------------------------------------------------

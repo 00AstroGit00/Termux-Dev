@@ -17,7 +17,7 @@ bash setup.sh --verify
 ```
 
 ### 2. Run Stress & Verification Suite
-Execute the automated 28-point test suite (testing kernel flock locks, PATH precedence, shebang integrity, compilers, all 5 AI CLI engines, Android Studio project auto-detect, 16KB zipalign, and the complete Android SDK/NDK stack):
+Execute the automated 30-point test suite (testing kernel flock locks, PATH precedence, shebang integrity, compilers, all 5 AI CLI engines, Android Studio project auto-detect, external JAR library synthesis, ShellCheck lint validation, 16KB zipalign, and the complete Android SDK/NDK stack):
 ```bash
 bash test-suite.sh
 # or:
