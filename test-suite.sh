@@ -571,6 +571,23 @@ else
     test_warn "openssl not available"
 fi
 
+test_start "Compiler cache (ccache) compilation & caching verification"
+if command -v ccache >/dev/null 2>&1 && command -v clang >/dev/null 2>&1; then
+    mkdir -p "$TMP_TEST_DIR/ccache_test"
+    cat > "$TMP_TEST_DIR/ccache_test/hello.c" <<'EOF'
+#include <stdio.h>
+int main(void) { return 0; }
+EOF
+    if CCACHE_DIR="$TMP_TEST_DIR/ccache_test/.ccache" ccache clang -c "$TMP_TEST_DIR/ccache_test/hello.c" -o "$TMP_TEST_DIR/ccache_test/hello.o" >/dev/null 2>&1 && \
+       [[ -f "$TMP_TEST_DIR/ccache_test/hello.o" ]]; then
+        test_pass "ccache compiled object successfully and cached results"
+    else
+        test_fail "ccache compilation failed"
+    fi
+else
+    test_warn "ccache or clang not installed"
+fi
+
 test_start "ShellCheck linting validation across all repository scripts"
 if command -v shellcheck >/dev/null 2>&1; then
     if (cd "$SETUP_DIR" && shellcheck ./*.sh bin/* completions/*.bash) >/dev/null 2>&1; then

@@ -121,12 +121,22 @@ HOOK_EOF
 
     # Install/refresh shell completions
     local zsh_site="${PREFIX:-/data/data/com.termux/files/usr}/share/zsh/site-functions"
-    local bash_comp="${PREFIX:-/data/data/com.termux/files/usr}/etc/bash_completion.d"
-    mkdir -p "$zsh_site" "$bash_comp"
+    local bash_comp1="${PREFIX:-/data/data/com.termux/files/usr}/etc/bash_completion.d"
+    local bash_comp2="${PREFIX:-/data/data/com.termux/files/usr}/share/bash-completion/completions"
+    mkdir -p "$zsh_site" "$bash_comp1" "$bash_comp2"
     if [[ -d "$SETUP_DIR/completions" ]]; then
         [[ -f "$SETUP_DIR/completions/_tsuite" ]] && cp -f "$SETUP_DIR/completions/_tsuite" "$zsh_site/_tsuite" && cp -f "$SETUP_DIR/completions/_tsuite" "$zsh_site/_termux-suite"
         [[ -f "$SETUP_DIR/completions/_termux-apk-build" ]] && cp -f "$SETUP_DIR/completions/_termux-apk-build" "$zsh_site/_termux-apk-build" && cp -f "$SETUP_DIR/completions/_termux-apk-build" "$zsh_site/_apk-build"
-        [[ -f "$SETUP_DIR/completions/tsuite.bash" ]] && cp -f "$SETUP_DIR/completions/tsuite.bash" "$bash_comp/tsuite"
+        [[ -f "$SETUP_DIR/completions/_termux-wireless-adb" ]] && cp -f "$SETUP_DIR/completions/_termux-wireless-adb" "$zsh_site/_termux-wireless-adb" && cp -f "$SETUP_DIR/completions/_termux-wireless-adb" "$zsh_site/_wireless-adb" && cp -f "$SETUP_DIR/completions/_termux-wireless-adb" "$zsh_site/_tw-adb"
+        if [[ -f "$SETUP_DIR/completions/tsuite.bash" ]]; then
+            cp -f "$SETUP_DIR/completions/tsuite.bash" "$bash_comp1/tsuite"
+            cp -f "$SETUP_DIR/completions/tsuite.bash" "$bash_comp2/tsuite"
+            cp -f "$SETUP_DIR/completions/tsuite.bash" "$bash_comp2/termux-suite"
+            cp -f "$SETUP_DIR/completions/tsuite.bash" "$bash_comp2/termux-apk-build"
+            cp -f "$SETUP_DIR/completions/tsuite.bash" "$bash_comp2/apk-build"
+            cp -f "$SETUP_DIR/completions/tsuite.bash" "$bash_comp2/termux-wireless-adb"
+            cp -f "$SETUP_DIR/completions/tsuite.bash" "$bash_comp2/wireless-adb"
+        fi
         success "Shell completions refreshed for Zsh and Bash."
     fi
 }

@@ -142,11 +142,21 @@ command -v termux-fix-shebang >/dev/null 2>&1 && {
 if [[ -d "$SUITE_DIR/completions" ]]; then
     info "Installing shell completions for Zsh and Bash..."
     zsh_site="${PREFIX:-/data/data/com.termux/files/usr}/share/zsh/site-functions"
-    bash_comp="${PREFIX:-/data/data/com.termux/files/usr}/etc/bash_completion.d"
-    mkdir -p "$zsh_site" "$bash_comp"
+    bash_comp1="${PREFIX:-/data/data/com.termux/files/usr}/etc/bash_completion.d"
+    bash_comp2="${PREFIX:-/data/data/com.termux/files/usr}/share/bash-completion/completions"
+    mkdir -p "$zsh_site" "$bash_comp1" "$bash_comp2"
     [[ -f "$SUITE_DIR/completions/_tsuite" ]] && cp -f "$SUITE_DIR/completions/_tsuite" "$zsh_site/_tsuite" && cp -f "$SUITE_DIR/completions/_tsuite" "$zsh_site/_termux-suite"
     [[ -f "$SUITE_DIR/completions/_termux-apk-build" ]] && cp -f "$SUITE_DIR/completions/_termux-apk-build" "$zsh_site/_termux-apk-build" && cp -f "$SUITE_DIR/completions/_termux-apk-build" "$zsh_site/_apk-build"
-    [[ -f "$SUITE_DIR/completions/tsuite.bash" ]] && cp -f "$SUITE_DIR/completions/tsuite.bash" "$bash_comp/tsuite"
+    [[ -f "$SUITE_DIR/completions/_termux-wireless-adb" ]] && cp -f "$SUITE_DIR/completions/_termux-wireless-adb" "$zsh_site/_termux-wireless-adb" && cp -f "$SUITE_DIR/completions/_termux-wireless-adb" "$zsh_site/_wireless-adb" && cp -f "$SUITE_DIR/completions/_termux-wireless-adb" "$zsh_site/_tw-adb"
+    if [[ -f "$SUITE_DIR/completions/tsuite.bash" ]]; then
+        cp -f "$SUITE_DIR/completions/tsuite.bash" "$bash_comp1/tsuite"
+        cp -f "$SUITE_DIR/completions/tsuite.bash" "$bash_comp2/tsuite"
+        cp -f "$SUITE_DIR/completions/tsuite.bash" "$bash_comp2/termux-suite"
+        cp -f "$SUITE_DIR/completions/tsuite.bash" "$bash_comp2/termux-apk-build"
+        cp -f "$SUITE_DIR/completions/tsuite.bash" "$bash_comp2/apk-build"
+        cp -f "$SUITE_DIR/completions/tsuite.bash" "$bash_comp2/termux-wireless-adb"
+        cp -f "$SUITE_DIR/completions/tsuite.bash" "$bash_comp2/wireless-adb"
+    fi
 fi
 
 success "Global CLI commands installed:"

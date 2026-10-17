@@ -1,0 +1,26 @@
+#compdef termux-wireless-adb wireless-adb tw-adb
+
+_termux_wireless_adb() {
+    local -a commands
+    commands=(
+        'pair:Pair device with 6-digit code (Step 1)'
+        'connect:Connect to wireless debugging port (Step 2)'
+        'reconnect:Reconnect to the last saved session port'
+        'disconnect:Disconnect active wireless ADB sessions'
+        'status:Check ADB server and attached devices'
+        'guide:Show step-by-step Android settings guide'
+        'help:Show help message'
+    )
+
+    _arguments -C \
+        '1: :->command' \
+        '*:: :->args' && return 0
+
+    case $state in
+        command)
+            _describe -t commands 'command' commands
+            ;;
+    esac
+}
+
+_termux_wireless_adb "$@"

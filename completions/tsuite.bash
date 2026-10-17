@@ -37,5 +37,18 @@ _apk_build_completions() {
     fi
 }
 
+_wireless_adb_completions() {
+    local cur opts
+    COMPREPLY=()
+    cur="${COMP_WORDS[COMP_CWORD]}"
+    opts="pair connect reconnect disconnect status guide help -h --help"
+
+    if [[ "$cur" == * ]]; then
+        mapfile -t COMPREPLY < <(compgen -W "$opts" -- "$cur")
+        return 0
+    fi
+}
+
 complete -F _tsuite_completions termux-suite tsuite
 complete -F _apk_build_completions termux-apk-build apk-build
+complete -F _wireless_adb_completions termux-wireless-adb wireless-adb tw-adb

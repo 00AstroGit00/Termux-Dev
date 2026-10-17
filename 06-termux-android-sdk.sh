@@ -103,7 +103,8 @@ apt-get install -y \
     7zip \
     axel \
     cmake \
-    ninja
+    ninja \
+    ccache
 
 # -----------------------------
 # 3. Android SDK & NDK Package
@@ -226,10 +227,22 @@ export ANDROID_NDK_ROOT="\$ANDROID_HOME/ndk/$NDK_VERSION"
 export NDK_HOME="\$ANDROID_NDK_ROOT"
 export JAVA_HOME="$JAVA_HOME"
 
+# Compiler cache (ccache) integration for high-speed NDK compilation
+if command -v ccache >/dev/null 2>&1; then
+    export NDK_CCACHE="${PREFIX:-/data/data/com.termux/files/usr}/bin/ccache"
+    export CCACHE_DIR="\$HOME/.ccache"
+fi
+
 # Android SDK build tools, cmdline tools, platform tools, NDK compilers, and cmake
 export PATH="\$ANDROID_HOME/cmdline-tools/latest/bin:\$ANDROID_HOME/platform-tools:\$ANDROID_HOME/build-tools/$BUILD_TOOLS_VERSION:\$ANDROID_HOME/cmake/4.1.2/bin:\$ANDROID_NDK_ROOT/toolchains/llvm/prebuilt/linux-arm64/bin:\$PATH"
 EOF
 chmod 644 "$ENV_FILE"
+
+# Tune ccache for mobile flash storage (2GB limit, compression enabled)
+if command -v ccache >/dev/null 2>&1; then
+    ccache -M 2G 2>/dev/null || true
+    ccache -o compression=true 2>/dev/null || true
+fi
 
 # Persist in shell rc files
 for rc in "$HOME/.bashrc" "$HOME/.zshrc"; do
@@ -288,6 +301,7 @@ else
     warn "NDK Clang missing at $NDK_BIN/clang"
 fi
 command -v android >/dev/null 2>&1 && success "Android CLI: $(android --version 2>&1 | head -n 1)" || warn "Android CLI missing"
+command -v ccache >/dev/null 2>&1 && success "ccache:      $(ccache --version 2>&1 | head -n 1)" || warn "ccache missing"
 
 printf '\n'
 success "Stage 06: Android SDK, NDK & Development Toolchain setup complete!"

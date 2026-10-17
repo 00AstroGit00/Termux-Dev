@@ -1,0 +1,57 @@
+name: Release Packager
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version tag (e.g. v1.0.0)'
+        required: true
+        default: 'v1.0.0'
+
+permissions:
+  contents: write
+
+jobs:
+  package-release:
+    name: Build & Publish Release Assets
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set Release Version
+        id: vars
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "VERSION=${{ github.event.inputs.version }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "VERSION=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Package Distribution Archive
+        run: |
+          VERSION="${{ steps.vars.outputs.VERSION }}"
+          ARCHIVE_NAME="termux-dev-${VERSION}.tar.gz"
+          echo "Packaging ${ARCHIVE_NAME}..."
+          tar --exclude-vcs \
+              --exclude='.github' \
+              --exclude='.git' \
+              -czvf "${ARCHIVE_NAME}" \
+              ./*.sh bin completions README.md AGENTS.md
+
+          sha256sum "${ARCHIVE_NAME}" > "${ARCHIVE_NAME}.sha256"
+          echo "Generated SHA256:"
+          cat "${ARCHIVE_NAME}.sha256"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.vars.outputs.VERSION }}
+          name: Release ${{ steps.vars.outputs.VERSION }}
+          generate_release_notes: true
+          files: |
+            termux-dev-*.tar.gz
+            termux-dev-*.tar.gz.sha256

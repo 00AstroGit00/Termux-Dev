@@ -140,6 +140,7 @@ if [[ "$CLEAN_CACHE" == "1" && -d "$CACHE_DIR" ]]; then
     rm -rf "$CACHE_DIR"
 fi
 
+mkdir -p "$BUILD_DIR/classes" "$BUILD_DIR/gen"
 if command -v termux-wake-lock >/dev/null 2>&1; then
     termux-wake-lock 2>/dev/null || true
     trap 'rm -rf "$BUILD_DIR"; termux-wake-unlock 2>/dev/null || true' EXIT INT TERM
