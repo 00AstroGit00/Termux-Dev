@@ -58,21 +58,46 @@ termux-apk-build -p /path/to/project -o app-signed.apk
 # With external JAR dependencies and direct ADB device installation:
 termux-apk-build -p /path/to/project -j libs/ -i -o app-signed.apk
 
+# Direct 1-tap installation via Android Sharesheet / Package Installer (no ADB/PC):
+termux-apk-build -p /path/to/project -u -o app-signed.apk
+
 # Or specify custom components directly:
 termux-apk-build -m AndroidManifest.xml -s src/ -r res/ -l lib/ -j libs/ -i -o app-signed.apk
+
+# Incremental cache management:
+termux-apk-build -p /path/to/project --clean-cache # Purge cache
+termux-apk-build -p /path/to/project --no-cache    # Bypass cache
 ```
 
 Features:
 - Sub-second build speed with 0 MB background JVM memory footprint.
+- **Incremental AAPT2 build caching** (`.apk-cache/`), reducing rebuild times to sub-300ms.
 - Full multi-DEX support (`classes*.dex`) and external `.jar` bytecode compilation.
 - Bundles uncompressed native libraries (`.so`) for Android 15+ direct `mmap()`.
 - Enforces strict 16KB page-boundary alignment (`zipalign -P 16 -f 4`).
-- Direct on-device installation and app launching via ADB (`-i, --install`).
+- Direct on-device installation via ADB (`-i, --install`) or native package installer (`-u, --share`).
+- Automatic clipboard copy of APK path, haptic vibration pulse, and status notifications.
 - Signs with v1, v2, and v3 APK Signature Schemes.
+
+### Method B: Wireless Debugging & Local ADB (`termux-wireless-adb`)
+Connect to Android 11+ on-device Wireless Debugging without a PC or USB cable:
+```bash
+# Pair with device (prompted for port & 6-digit pairing code):
+termux-wireless-adb pair <pairing-port> <pairing-code>
+
+# Connect using main connection port (cached for quick reconnect):
+termux-wireless-adb connect <connection-port>
+
+# Reconnect instantly:
+termux-wireless-adb reconnect
+
+# Check connection status:
+termux-wireless-adb status
+```
 
 ---
 
-### Method B: Manual Underlying Step-by-Step Pipeline
+### Method C: Manual Underlying Step-by-Step Pipeline
 For learning or custom pipeline control:
 
 ```bash

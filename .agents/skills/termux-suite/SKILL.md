@@ -17,32 +17,62 @@ bash setup.sh --verify
 ```
 
 ### 2. Run Stress & Verification Suite
-Execute the automated 30-point test suite (testing kernel flock locks, PATH precedence, shebang integrity, compilers, all 5 AI CLI engines, Android Studio project auto-detect, external JAR library synthesis, ShellCheck lint validation, 16KB zipalign, and the complete Android SDK/NDK stack):
+Execute the automated 33-point test suite (testing kernel flock locks, PATH precedence, shebang integrity, compilers, all 5 AI CLI engines, Android Studio project auto-detect, external JAR library synthesis, ShellCheck lint validation, 16KB zipalign, AAPT2 incremental build caching, Wireless ADB helper, Encrypted Developer Vault, and the complete Android SDK/NDK stack):
 ```bash
 bash test-suite.sh
 # or:
 tsuite --test
 ```
 
-### 3. Clear Stale Concurrency Locks
+### 3. Custom Multi-Stage Selection Wizard
+Launch the interactive checklist wizard to choose custom combinations of setup stages:
+```bash
+bash setup.sh --wizard
+# or:
+tsuite --wizard
+```
+
+### 4. Encrypted Developer Vault (Backup / Restore)
+Securely backup or restore sensitive credentials (`~/.ai-env`, `~/.ssh/`, `~/.gitconfig`) with OpenSSL AES-256-CBC:
+```bash
+# Export encrypted vault:
+tsuite --backup [output_file.enc]
+
+# Restore from encrypted vault:
+tsuite --restore [input_file.enc]
+```
+
+### 5. Wireless ADB Pairing & Connect (Android 11+)
+Pair and connect to on-device wireless debugging without a PC or USB cable:
+```bash
+# Interactive helper:
+termux-wireless-adb
+
+# Or direct commands:
+termux-wireless-adb pair <port> <code>
+termux-wireless-adb connect <port>
+termux-wireless-adb reconnect
+```
+
+### 6. Clear Stale Concurrency Locks
 If a script was interrupted abruptly:
 ```bash
 bash setup.sh --clean
 ```
 
-### 4. Prune Unused NDK Sysroots (Save ~600MB)
+### 7. Prune Unused NDK Sysroots (Save ~600MB)
 Remove unused x86, x86_64, and RISC-V cross-compilation sysroots:
 ```bash
 bash setup.sh --prune-ndk
 ```
 
-### 5. Tune Device (Disable Android 12+ Phantom Process Killer)
+### 8. Tune Device (Disable Android 12+ Phantom Process Killer)
 Neutralize the 32-child-process background restriction:
 ```bash
 bash setup.sh --tune-device
 ```
 
-### 6. Install Local Git Pre-Commit Hook
+### 9. Install Local Git Pre-Commit Hook
 Ensure invalid shell scripts or unexecutable files can never be committed:
 ```bash
 bash setup.sh --install-hooks
@@ -65,8 +95,10 @@ bash setup.sh --install-hooks
 - **Standalone APK Engine (`termux-apk-build`)**:
   - Rapid zero-Gradle compilation in < 1 second.
   - Auto-detects Android Studio / Gradle project layouts: `termux-apk-build -p <project-dir>`
+  - Incremental AAPT2 resource cache (`.apk-cache`) dropping rebuilds to sub-300ms.
   - Bundles uncompressed native libraries with 16KB page alignment: `termux-apk-build -l <lib-dir>`
   - Aligns to 16KB boundaries via `zipalign -P 16 -f 4` and signs with `apksigner`.
+  - 1-tap package installation via Android Sharesheet (`-u, --share`).
 
 ## Adding or Updating AI Assistants
 
