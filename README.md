@@ -69,7 +69,7 @@ Stock Termux is lightweight, but turning it into a complete, professional softwa
   - **GitHub Copilot (`copilot`)**: Glibc runtime-bridged binary with seamless device auth
 - **🔒 Kernel Concurrency Locking**: Every stage uses kernel-managed `flock` locks, preventing race conditions or corrupted partial runs while remaining immune to stale lockfiles after crashes.
 - **🛡️ Clean Shell & Secret Isolation**: Dual-shell parity for Bash and Zsh, user-global npm prefix (`~/.npm-global`), isolated private keys (`~/.ai-env` with `0600` permissions), and persistent environment profiles (`~/.android-env`).
-- **🧪 Ruthless 27-Point Stress Test Suite**: Rigorously tests file locks, PATH precedence, permissions, shebang integrity, compilers, all 5 AI engines, the complete Android SDK/NDK toolchain, and Android 15+ 16KB page-aligned APK generation.
+- **🧪 Ruthless 28-Point Stress Test Suite**: Rigorously tests file locks, PATH precedence, permissions, shebang integrity, compilers, all 5 AI engines, the complete Android SDK/NDK toolchain, Android Studio project auto-detection, and Android 15+ 16KB page-aligned APK generation.
 
 ---
 
@@ -98,7 +98,7 @@ Stock Termux is lightweight, but turning it into a complete, professional softwa
                               │
                               ▼
   ┌────────────────────────────────────────────────────────┐
-  │        Ruthless 27-Point Automated Test Suite          │
+  │        Ruthless 28-Point Automated Test Suite          │
   └────────────────────────────────────────────────────────┘
 ```
 
@@ -310,7 +310,7 @@ The suite packages and maintains 5 leading terminal AI coding assistants:
 
 ## 🧪 Automated Verification & Stress Test Suite
 
-Execute the full 27-point verification suite at any time:
+Execute the full 28-point verification suite at any time:
 
 ```bash
 bash test-suite.sh
@@ -348,13 +348,14 @@ termux-suite --test
 ▶ [TEST] AAPT2, d8 & apksigner APK synthesis and signing ... PASS
 ▶ [TEST] Standalone zero-Gradle APK builder (termux-apk-build) ... PASS
 ▶ [TEST] Android APK zipalign 4-byte & 16KB page alignment verification ... PASS
+▶ [TEST] Android Studio project auto-detection build (termux-apk-build -p) ... PASS
 ▶ [TEST] Android NDK native C compilation (ARM64) ... PASS
 ▶ [TEST] Android NDK native C++20 STL compilation (ARM64) ... PASS
 ▶ [TEST] Android NDK target wrapper (aarch64-linux-android34-clang) ... PASS
 ▶ [TEST] Google Android CLI (android) operational execution ... PASS (1.0.16625370)
 
 === Test Suite Results ===
-  Passed:   27
+  Passed:   28
   Warnings: 0
   Failed:   0
 

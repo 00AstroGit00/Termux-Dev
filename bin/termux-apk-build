@@ -31,6 +31,7 @@ MANIFEST="AndroidManifest.xml"
 SRC_DIR="src"
 RES_DIR=""
 LIB_DIR=""
+PROJECT_DIR=""
 OUTPUT_APK="app-signed.apk"
 KEYSTORE=""
 KEY_ALIAS="debug"
@@ -40,6 +41,7 @@ BUILD_DIR="${TMPDIR:-/data/data/com.termux/files/usr/tmp}/apk-build-$$"
 show_help() {
     printf 'Usage: %s [OPTIONS]\n\n' "$(basename "$0")"
     printf 'Options:\n'
+    printf '  -p, --project <dir>    Android Studio / Gradle project root directory (auto-detects paths)\n'
     printf '  -m, --manifest <file>  Path to AndroidManifest.xml (default: AndroidManifest.xml)\n'
     printf '  -s, --src <dir>        Path to Java source directory (default: src)\n'
     printf '  -r, --res <dir>        Path to Android resources directory (optional)\n'
@@ -54,6 +56,7 @@ show_help() {
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
+        -p|--project)  PROJECT_DIR="$2"; shift 2 ;;
         -m|--manifest) MANIFEST="$2"; shift 2 ;;
         -s|--src)      SRC_DIR="$2"; shift 2 ;;
         -r|--res)      RES_DIR="$2"; shift 2 ;;
@@ -66,6 +69,21 @@ while [[ $# -gt 0 ]]; do
         *) printf '\033[0;31m[ERROR]\033[0m Unknown option: %s\n' "$1" >&2; exit 1 ;;
     esac
 done
+
+# Auto-detect Android Studio / Gradle project structures
+if [[ -n "$PROJECT_DIR" && -d "$PROJECT_DIR" ]]; then
+    if [[ -f "$PROJECT_DIR/app/src/main/AndroidManifest.xml" ]]; then
+        MANIFEST="$PROJECT_DIR/app/src/main/AndroidManifest.xml"
+        SRC_DIR="$PROJECT_DIR/app/src/main/java"
+        [[ -d "$PROJECT_DIR/app/src/main/res" ]] && RES_DIR="$PROJECT_DIR/app/src/main/res"
+        [[ -d "$PROJECT_DIR/app/src/main/jniLibs" ]] && LIB_DIR="$PROJECT_DIR/app/src/main/jniLibs"
+    elif [[ -f "$PROJECT_DIR/src/main/AndroidManifest.xml" ]]; then
+        MANIFEST="$PROJECT_DIR/src/main/AndroidManifest.xml"
+        SRC_DIR="$PROJECT_DIR/src/main/java"
+        [[ -d "$PROJECT_DIR/src/main/res" ]] && RES_DIR="$PROJECT_DIR/src/main/res"
+        [[ -d "$PROJECT_DIR/src/main/jniLibs" ]] && LIB_DIR="$PROJECT_DIR/src/main/jniLibs"
+    fi
+fi
 
 [[ -f "$MANIFEST" ]] || { printf '\033[0;31m[ERROR]\033[0m Manifest not found: %s\n' "$MANIFEST" >&2; exit 1; }
 [[ -d "$SRC_DIR" ]] || { printf '\033[0;31m[ERROR]\033[0m Source directory not found: %s\n' "$SRC_DIR" >&2; exit 1; }
@@ -100,9 +118,18 @@ d8 --lib "$PLATFORM_JAR" --output "$BUILD_DIR" "${CLASS_FILES[@]}"
 printf '\033[0;34m[INFO]\033[0m Packaging DEX into APK...\n'
 (cd "$BUILD_DIR" && zip -uq app-unaligned.apk classes*.dex)
 
+# Native shared libraries stored uncompressed for Android runtime direct mmap
 if [[ -n "$LIB_DIR" && -d "$LIB_DIR" ]]; then
-    printf '\033[0;34m[INFO]\033[0m Packaging native libraries from %s...\n' "$LIB_DIR"
-    (cd "$LIB_DIR" && zip -urq "$BUILD_DIR/app-unaligned.apk" lib/)
+    printf '\033[0;34m[INFO]\033[0m Packaging uncompressed native libraries from %s (16KB mmap)...\n' "$LIB_DIR"
+    if [[ -d "$LIB_DIR/lib" ]]; then
+        (cd "$LIB_DIR" && zip -0rq "$BUILD_DIR/app-unaligned.apk" lib/)
+    elif [[ -d "$LIB_DIR/arm64-v8a" ]]; then
+        mkdir -p "$BUILD_DIR/pack_lib/lib"
+        cp -rf "$LIB_DIR" "$BUILD_DIR/pack_lib/lib/"
+        (cd "$BUILD_DIR/pack_lib" && zip -0rq "$BUILD_DIR/app-unaligned.apk" lib/)
+    else
+        (cd "$LIB_DIR" && zip -0rq "$BUILD_DIR/app-unaligned.apk" .)
+    fi
 fi
 
 if [[ -z "$KEYSTORE" ]]; then
@@ -119,8 +146,8 @@ fi
 # Ensure 4-byte and 16KB page alignment (Android 15+ compatible)
 SIGN_TARGET="$BUILD_DIR/app-unaligned.apk"
 if command -v zipalign >/dev/null 2>&1; then
-    printf '\033[0;34m[INFO]\033[0m Aligning APK with zipalign (4-byte / page alignment)...\n'
-    zipalign -p -f 4 "$BUILD_DIR/app-unaligned.apk" "$BUILD_DIR/app-aligned.apk"
+    printf '\033[0;34m[INFO]\033[0m Aligning APK with zipalign (16KB page alignment / Android 15+)...\n'
+    zipalign -P 16 -f 4 "$BUILD_DIR/app-unaligned.apk" "$BUILD_DIR/app-aligned.apk"
     SIGN_TARGET="$BUILD_DIR/app-aligned.apk"
 fi
 
@@ -136,7 +163,7 @@ apksigner sign --ks "$KEYSTORE" \
 apksigner verify "$OUTPUT_APK" >/dev/null 2>&1
 
 if command -v zipalign >/dev/null 2>&1; then
-    zipalign -c 4 "$OUTPUT_APK" >/dev/null 2>&1 || true
+    zipalign -c -P 16 4 "$OUTPUT_APK" >/dev/null 2>&1 || true
 fi
 
 printf '\033[0;32m[SUCCESS]\033[0m Signed APK successfully generated at: %s\n' "$OUTPUT_APK"

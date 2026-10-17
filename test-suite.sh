@@ -369,13 +369,37 @@ fi
 
 test_start "Android APK zipalign 4-byte & 16KB page alignment verification"
 if command -v zipalign >/dev/null 2>&1; then
-    if [[ -f "$TMP_TEST_DIR/cli_app/built.apk" ]] && zipalign -c 4 "$TMP_TEST_DIR/cli_app/built.apk" >/dev/null 2>&1; then
-        test_pass "APK passed 4-byte page-boundary zipalign audit"
+    if [[ -f "$TMP_TEST_DIR/cli_app/built.apk" ]] && zipalign -c -P 16 4 "$TMP_TEST_DIR/cli_app/built.apk" >/dev/null 2>&1; then
+        test_pass "APK passed 16KB page-boundary zipalign audit"
     else
         test_fail "zipalign verification failed on synthesized APK"
     fi
 else
     test_fail "zipalign executable not found on PATH"
+fi
+
+test_start "Android Studio project auto-detection build (termux-apk-build -p)"
+if command -v termux-apk-build >/dev/null 2>&1 || [[ -x "$SETUP_DIR/bin/termux-apk-build" ]]; then
+    APK_BUILD_CMD="$(command -v termux-apk-build 2>/dev/null || echo "$SETUP_DIR/bin/termux-apk-build")"
+    mkdir -p "$TMP_TEST_DIR/studio_proj/app/src/main/java/com/studio"
+    cat > "$TMP_TEST_DIR/studio_proj/app/src/main/AndroidManifest.xml" <<'EOF'
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.studio">
+    <application android:label="StudioApp" />
+</manifest>
+EOF
+    cat > "$TMP_TEST_DIR/studio_proj/app/src/main/java/com/studio/Main.java" <<'EOF'
+package com.studio;
+public class Main { public static void main(String[] args) {} }
+EOF
+    if "$APK_BUILD_CMD" -p "$TMP_TEST_DIR/studio_proj" -o "$TMP_TEST_DIR/studio_proj/out.apk" >/dev/null 2>&1 && \
+       apksigner verify "$TMP_TEST_DIR/studio_proj/out.apk" >/dev/null 2>&1; then
+        test_pass "auto-detected Gradle layout and synthesized verified APK"
+    else
+        test_fail "Android Studio project auto-detect build failed"
+    fi
+else
+    test_fail "termux-apk-build executable not found"
 fi
 
 test_start "Android NDK native C compilation (ARM64)"

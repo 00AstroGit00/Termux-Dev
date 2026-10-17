@@ -53,6 +53,56 @@ prune_ndk() {
     fi
 }
 
+tune_device() {
+    printf '\n%s=== Android Device Tuning: Phantom Process Killer ===%s\n\n' "$BOLD$CYAN" "$NC"
+    if su -c true >/dev/null 2>&1; then
+        info "Root detected. Applying system configuration to disable Phantom Process Killer..."
+        if su -c '
+            settings put global settings_enable_monitor_phantom_procs false && \
+            /system/bin/device_config set_sync_disabled_for_tests persistent && \
+            /system/bin/device_config put activity_manager max_phantom_processes 2147483647
+        ' 2>/dev/null; then
+            success "Phantom Process Killer successfully disabled via root."
+            return 0
+        fi
+    fi
+
+    printf '%s[Android 12+ Background Stability Notice]%s\n' "$BOLD$YELLOW" "$NC"
+    printf 'Android 12/13/14+ terminates heavy builds/compilers when exceeding 32 child processes.\n'
+    printf 'To permanently neutralize the Phantom Process Killer, connect via ADB and run:\n\n'
+    printf '  %sadb shell "/system/bin/device_config set_sync_disabled_for_tests persistent"%s\n' "$BOLD$GREEN" "$NC"
+    printf '  %sadb shell "/system/bin/device_config put activity_manager max_phantom_processes 2147483647"%s\n' "$BOLD$GREEN" "$NC"
+    printf '  %sadb shell "settings put global settings_enable_monitor_phantom_procs false"%s\n\n' "$BOLD$GREEN" "$NC"
+    printf 'On Android 14+, you can also enable:\n'
+    printf '  Settings -> System -> Developer Options -> "Disable child process restrictions"\n\n'
+}
+
+install_git_hooks() {
+    printf '\n%s=== Git Pre-Commit Hook Installation ===%s\n\n' "$BOLD$CYAN" "$NC"
+    local hook_dir="$SETUP_DIR/.git/hooks"
+    if [[ ! -d "$hook_dir" ]]; then
+        warn "Git hooks directory not found at $hook_dir"
+        return 1
+    fi
+
+    cat > "$hook_dir/pre-commit" <<'HOOK_EOF'
+#!/data/data/com.termux/files/usr/bin/bash
+set -e
+echo "Running pre-commit validation..."
+for script in *.sh bin/*; do
+    if [[ -f "$script" ]]; then
+        bash -n "$script" || { echo "[ERROR] Syntax validation failed: $script"; exit 1; }
+        if [[ ! -x "$script" ]]; then
+            chmod +x "$script"
+        fi
+    fi
+done
+echo "Pre-commit checks passed cleanly."
+HOOK_EOF
+    chmod +x "$hook_dir/pre-commit"
+    success "Pre-commit hook installed at $hook_dir/pre-commit."
+}
+
 run_stage() {
     local stage_file="$1"
     local stage_title="$2"
@@ -154,6 +204,8 @@ show_dialog_tui() {
             "9" "Run Ruthless Stress & Verification Test Suite" \
             "10" "Clean Locks & Temporary Files" \
             "11" "Prune Unused NDK Sysroots (Save ~600MB)" \
+            "12" "Tune Device: Disable Phantom Process Killer" \
+            "13" "Install Local Git Pre-Commit Hook" \
             "0" "Exit" \
             2>&1 >/dev/tty) || break
 
@@ -181,6 +233,8 @@ show_dialog_tui() {
                 success "Temporary locks cleared."
                 ;;
             11) prune_ndk ;;
+            12) tune_device ;;
+            13) install_git_hooks ;;
             0) break ;;
         esac
 
@@ -211,9 +265,11 @@ show_menu() {
     printf '  9) Run Ruthless Stress & Verification Test Suite\n'
     printf ' 10) Clean Locks & Temporary Files\n'
     printf ' 11) Prune Unused NDK Sysroots (Save ~600MB)\n'
+    printf ' 12) Tune Device: Disable Phantom Process Killer\n'
+    printf ' 13) Install Local Git Pre-Commit Hook\n'
     printf '  0) Exit\n\n'
 
-    read -rp "Select an option [0-11]: " choice
+    read -rp "Select an option [0-13]: " choice
     case "$choice" in
         1)
             run_stage "01-termux-base.sh" "Stage 01: Termux Base Setup"
@@ -240,6 +296,12 @@ show_menu() {
             ;;
         11)
             prune_ndk
+            ;;
+        12)
+            tune_device
+            ;;
+        13)
+            install_git_hooks
             ;;
         0|q|Q)
             info "Exiting."
@@ -294,21 +356,29 @@ if [[ $# -gt 0 ]]; then
         --prune-ndk)
             prune_ndk
             ;;
+        --tune-device)
+            tune_device
+            ;;
+        --install-hooks)
+            install_git_hooks
+            ;;
         --help|-h)
             printf 'Usage: %s [OPTION]\n\n' "$(basename "$0")"
             printf 'Options:\n'
-            printf '  --all         Execute all setup stages (01 -> 06)\n'
-            printf '  --base        Execute Stage 01: Base & Repos\n'
-            printf '  --essentials  Execute Stage 02: Essentials & Dev Tools\n'
-            printf '  --node        Execute Stage 03: Node.js Toolchain\n'
-            printf '  --ai          Execute Stage 04: AI CLI Suite\n'
-            printf '  --ai-env      Execute Stage 05: AI Environment Setup\n'
-            printf '  --android     Execute Stage 06: Android SDK & NDK Setup\n'
-            printf '  --verify      Verify all installed tools\n'
-            printf '  --test        Run ruthless stress & verification test suite\n'
-            printf '  --prune-ndk   Prune unused NDK sysroots (saves ~600MB storage)\n'
-            printf '  --clean       Remove locks and temporary files\n'
-            printf '  --help        Display this help message\n'
+            printf '  --all            Execute all setup stages (01 -> 06)\n'
+            printf '  --base           Execute Stage 01: Base & Repos\n'
+            printf '  --essentials     Execute Stage 02: Essentials & Dev Tools\n'
+            printf '  --node           Execute Stage 03: Node.js Toolchain\n'
+            printf '  --ai             Execute Stage 04: AI CLI Suite\n'
+            printf '  --ai-env         Execute Stage 05: AI Environment Setup\n'
+            printf '  --android        Execute Stage 06: Android SDK & NDK Setup\n'
+            printf '  --verify         Verify all installed tools\n'
+            printf '  --test           Run ruthless stress & verification test suite\n'
+            printf '  --prune-ndk      Prune unused NDK sysroots (saves ~600MB storage)\n'
+            printf '  --tune-device    Disable Phantom Process Killer (root or ADB guidance)\n'
+            printf '  --install-hooks  Install local Git pre-commit verification hook\n'
+            printf '  --clean          Remove locks and temporary files\n'
+            printf '  --help           Display this help message\n'
             exit 0
             ;;
         *)
