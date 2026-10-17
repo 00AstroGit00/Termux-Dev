@@ -1,0 +1,142 @@
+#!/data/data/com.termux/files/usr/bin/bash
+#
+# Standalone Zero-Gradle Android APK Builder for Termux
+# Rapid sub-second APK synthesis without heavy Gradle JVM memory overhead.
+#
+
+set -Eeuo pipefail
+
+# Ensure environment
+[[ -f "$HOME/.android-env" ]] && source "$HOME/.android-env"
+
+ANDROID_HOME="${ANDROID_HOME:-/data/data/com.termux/files/usr/opt/android-sdk}"
+BUILD_TOOLS_VERSION="36.1.0"
+PLATFORM_JAR="$ANDROID_HOME/platforms/android-36/android.jar"
+
+# Pre-flight tool check
+for cmd in aapt2 javac d8 apksigner zip keytool; do
+    if ! command -v "$cmd" >/dev/null 2>&1; then
+        printf '\033[0;31m[ERROR]\033[0m Required tool %s is not available on PATH.\n' "$cmd" >&2
+        exit 1
+    fi
+done
+
+if [[ ! -f "$PLATFORM_JAR" ]]; then
+    printf '\033[0;31m[ERROR]\033[0m Android platform JAR not found at %s\n' "$PLATFORM_JAR" >&2
+    exit 1
+fi
+
+# Defaults
+MANIFEST="AndroidManifest.xml"
+SRC_DIR="src"
+RES_DIR=""
+LIB_DIR=""
+OUTPUT_APK="app-signed.apk"
+KEYSTORE=""
+KEY_ALIAS="debug"
+KEY_PASS="android"
+BUILD_DIR="${TMPDIR:-/data/data/com.termux/files/usr/tmp}/apk-build-$$"
+
+show_help() {
+    printf 'Usage: %s [OPTIONS]\n\n' "$(basename "$0")"
+    printf 'Options:\n'
+    printf '  -m, --manifest <file>  Path to AndroidManifest.xml (default: AndroidManifest.xml)\n'
+    printf '  -s, --src <dir>        Path to Java source directory (default: src)\n'
+    printf '  -r, --res <dir>        Path to Android resources directory (optional)\n'
+    printf '  -l, --lib <dir>        Path to native libraries directory containing lib/<abi>/*.so (optional)\n'
+    printf '  -o, --output <file>    Path for output signed APK (default: app-signed.apk)\n'
+    printf '  -k, --keystore <file>  Path to signing keystore (default: auto-generated debug)\n'
+    printf '      --alias <name>     Keystore key alias (default: debug)\n'
+    printf '      --pass <password>  Keystore password (default: android)\n'
+    printf '  -h, --help             Display this help message\n'
+    exit 0
+}
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        -m|--manifest) MANIFEST="$2"; shift 2 ;;
+        -s|--src)      SRC_DIR="$2"; shift 2 ;;
+        -r|--res)      RES_DIR="$2"; shift 2 ;;
+        -l|--lib)      LIB_DIR="$2"; shift 2 ;;
+        -o|--output)   OUTPUT_APK="$2"; shift 2 ;;
+        -k|--keystore) KEYSTORE="$2"; shift 2 ;;
+        --alias)       KEY_ALIAS="$2"; shift 2 ;;
+        --pass)        KEY_PASS="$2"; shift 2 ;;
+        -h|--help)     show_help ;;
+        *) printf '\033[0;31m[ERROR]\033[0m Unknown option: %s\n' "$1" >&2; exit 1 ;;
+    esac
+done
+
+[[ -f "$MANIFEST" ]] || { printf '\033[0;31m[ERROR]\033[0m Manifest not found: %s\n' "$MANIFEST" >&2; exit 1; }
+[[ -d "$SRC_DIR" ]] || { printf '\033[0;31m[ERROR]\033[0m Source directory not found: %s\n' "$SRC_DIR" >&2; exit 1; }
+
+mkdir -p "$BUILD_DIR/classes" "$BUILD_DIR/gen"
+trap 'rm -rf "$BUILD_DIR"' EXIT INT TERM
+
+printf '\033[0;34m[INFO]\033[0m Compiling resources with AAPT2...\n'
+AAPT_ARGS=("-I" "$PLATFORM_JAR" "--manifest" "$MANIFEST" "--java" "$BUILD_DIR/gen" "-o" "$BUILD_DIR/app-unaligned.apk")
+
+if [[ -n "$RES_DIR" && -d "$RES_DIR" ]]; then
+    mkdir -p "$BUILD_DIR/compiled-res"
+    aapt2 compile --dir "$RES_DIR" -o "$BUILD_DIR/compiled-res.zip"
+    AAPT_ARGS+=("-R" "$BUILD_DIR/compiled-res.zip")
+fi
+
+aapt2 link "${AAPT_ARGS[@]}"
+
+printf '\033[0;34m[INFO]\033[0m Compiling Java source files...\n'
+mapfile -t JAVA_FILES < <(find "$SRC_DIR" "$BUILD_DIR/gen" -name "*.java" 2>/dev/null)
+if [[ ${#JAVA_FILES[@]} -eq 0 ]]; then
+    printf '\033[0;31m[ERROR]\033[0m No .java files found in %s\n' "$SRC_DIR" >&2
+    exit 1
+fi
+
+javac -cp "$PLATFORM_JAR" -d "$BUILD_DIR/classes" "${JAVA_FILES[@]}"
+
+printf '\033[0;34m[INFO]\033[0m Converting bytecode to Dalvik DEX (d8)...\n'
+mapfile -t CLASS_FILES < <(find "$BUILD_DIR/classes" -name "*.class" 2>/dev/null)
+d8 --lib "$PLATFORM_JAR" --output "$BUILD_DIR" "${CLASS_FILES[@]}"
+
+printf '\033[0;34m[INFO]\033[0m Packaging DEX into APK...\n'
+(cd "$BUILD_DIR" && zip -uq app-unaligned.apk classes*.dex)
+
+if [[ -n "$LIB_DIR" && -d "$LIB_DIR" ]]; then
+    printf '\033[0;34m[INFO]\033[0m Packaging native libraries from %s...\n' "$LIB_DIR"
+    (cd "$LIB_DIR" && zip -urq "$BUILD_DIR/app-unaligned.apk" lib/)
+fi
+
+if [[ -z "$KEYSTORE" ]]; then
+    KEYSTORE="$HOME/.android/debug.keystore"
+    if [[ ! -f "$KEYSTORE" ]]; then
+        mkdir -p "$(dirname "$KEYSTORE")"
+        keytool -genkey -v -keystore "$KEYSTORE" \
+            -alias "$KEY_ALIAS" -keyalg RSA -keysize 2048 -validity 10000 \
+            -storepass "$KEY_PASS" -keypass "$KEY_PASS" \
+            -dname "CN=Android Debug,O=Android,C=US" >/dev/null 2>&1
+    fi
+fi
+
+# Ensure 4-byte and 16KB page alignment (Android 15+ compatible)
+SIGN_TARGET="$BUILD_DIR/app-unaligned.apk"
+if command -v zipalign >/dev/null 2>&1; then
+    printf '\033[0;34m[INFO]\033[0m Aligning APK with zipalign (4-byte / page alignment)...\n'
+    zipalign -p -f 4 "$BUILD_DIR/app-unaligned.apk" "$BUILD_DIR/app-aligned.apk"
+    SIGN_TARGET="$BUILD_DIR/app-aligned.apk"
+fi
+
+printf '\033[0;34m[INFO]\033[0m Signing APK with apksigner...\n'
+mkdir -p "$(dirname "$OUTPUT_APK")"
+apksigner sign --ks "$KEYSTORE" \
+    --ks-key-alias "$KEY_ALIAS" \
+    --ks-pass "pass:$KEY_PASS" \
+    --key-pass "pass:$KEY_PASS" \
+    --out "$OUTPUT_APK" \
+    "$SIGN_TARGET"
+
+apksigner verify "$OUTPUT_APK" >/dev/null 2>&1
+
+if command -v zipalign >/dev/null 2>&1; then
+    zipalign -c 4 "$OUTPUT_APK" >/dev/null 2>&1 || true
+fi
+
+printf '\033[0;32m[SUCCESS]\033[0m Signed APK successfully generated at: %s\n' "$OUTPUT_APK"

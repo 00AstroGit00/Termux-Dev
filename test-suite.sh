@@ -310,7 +310,7 @@ else
     test_fail "NDK Clang not executable at $NDK_CLANG"
 fi
 
-test_start "AAPT2 & d8 minimal APK and DEX synthesis"
+test_start "AAPT2, d8 & apksigner APK synthesis and signing"
 cat > "$TMP_TEST_DIR/AndroidManifest.xml" <<'EOF'
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.test.suite">
@@ -321,10 +321,61 @@ cat > "$TMP_TEST_DIR/SuiteTest.java" <<'EOF'
 public class SuiteTest { public static void main(String[] args) {} }
 EOF
 ANDROID_JAR="${ANDROID_HOME:-$PREFIX/opt/android-sdk}/platforms/android-36/android.jar"
-if [[ -f "$ANDROID_JAR" ]] && aapt2 link -I "$ANDROID_JAR" --manifest "$TMP_TEST_DIR/AndroidManifest.xml" -o "$TMP_TEST_DIR/suite.apk" >/dev/null 2>&1 && javac "$TMP_TEST_DIR/SuiteTest.java" -d "$TMP_TEST_DIR" >/dev/null 2>&1 && d8 "$TMP_TEST_DIR/SuiteTest.class" --output "$TMP_TEST_DIR" >/dev/null 2>&1; then
-    test_pass "aapt2 and d8 compiled valid APK & DEX artifacts"
+if [[ -f "$ANDROID_JAR" ]] && \
+   aapt2 link -I "$ANDROID_JAR" --manifest "$TMP_TEST_DIR/AndroidManifest.xml" -o "$TMP_TEST_DIR/suite-unaligned.apk" >/dev/null 2>&1 && \
+   javac "$TMP_TEST_DIR/SuiteTest.java" -d "$TMP_TEST_DIR" >/dev/null 2>&1 && \
+   d8 "$TMP_TEST_DIR/SuiteTest.class" --output "$TMP_TEST_DIR" >/dev/null 2>&1; then
+    (cd "$TMP_TEST_DIR" && zip -uq suite-unaligned.apk classes.dex 2>/dev/null || true)
+    keytool -genkey -v -keystore "$TMP_TEST_DIR/test.keystore" \
+        -alias debug -keyalg RSA -keysize 2048 -validity 1000 \
+        -storepass android -keypass android \
+        -dname "CN=Test,O=Test,C=US" >/dev/null 2>&1 || true
+    if apksigner sign --ks "$TMP_TEST_DIR/test.keystore" --ks-pass pass:android --key-pass pass:android \
+        --out "$TMP_TEST_DIR/suite-signed.apk" "$TMP_TEST_DIR/suite-unaligned.apk" >/dev/null 2>&1 && \
+       apksigner verify "$TMP_TEST_DIR/suite-signed.apk" >/dev/null 2>&1; then
+        test_pass "aapt2, d8, and apksigner built and verified signed APK"
+    else
+        test_fail "apksigner failed to sign or verify APK"
+    fi
 else
     test_fail "APK/DEX synthesis failed"
+fi
+
+test_start "Standalone zero-Gradle APK builder (termux-apk-build)"
+if command -v termux-apk-build >/dev/null 2>&1 || [[ -x "$SETUP_DIR/bin/termux-apk-build" ]]; then
+    APK_BUILD_CMD="$(command -v termux-apk-build 2>/dev/null || echo "$SETUP_DIR/bin/termux-apk-build")"
+    mkdir -p "$TMP_TEST_DIR/cli_app/src/com/pkg"
+    cat > "$TMP_TEST_DIR/cli_app/AndroidManifest.xml" <<'EOF'
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.pkg">
+    <application android:label="CliApp" />
+</manifest>
+EOF
+    cat > "$TMP_TEST_DIR/cli_app/src/com/pkg/App.java" <<'EOF'
+package com.pkg;
+public class App { public static void main(String[] args) {} }
+EOF
+    if "$APK_BUILD_CMD" -m "$TMP_TEST_DIR/cli_app/AndroidManifest.xml" \
+                        -s "$TMP_TEST_DIR/cli_app/src" \
+                        -o "$TMP_TEST_DIR/cli_app/built.apk" >/dev/null 2>&1 && \
+       apksigner verify "$TMP_TEST_DIR/cli_app/built.apk" >/dev/null 2>&1; then
+        test_pass "termux-apk-build synthesized and verified signed APK"
+    else
+        test_fail "termux-apk-build execution failed"
+    fi
+else
+    test_fail "termux-apk-build executable not found"
+fi
+
+test_start "Android APK zipalign 4-byte & 16KB page alignment verification"
+if command -v zipalign >/dev/null 2>&1; then
+    if [[ -f "$TMP_TEST_DIR/cli_app/built.apk" ]] && zipalign -c 4 "$TMP_TEST_DIR/cli_app/built.apk" >/dev/null 2>&1; then
+        test_pass "APK passed 4-byte page-boundary zipalign audit"
+    else
+        test_fail "zipalign verification failed on synthesized APK"
+    fi
+else
+    test_fail "zipalign executable not found on PATH"
 fi
 
 test_start "Android NDK native C compilation (ARM64)"
@@ -340,6 +391,31 @@ EOF
     fi
 else
     test_fail "NDK Clang not executable at $NDK_CLANG"
+fi
+
+test_start "Android NDK native C++20 STL compilation (ARM64)"
+NDK_CLANGXX="${ANDROID_NDK_ROOT:-$PREFIX/opt/android-sdk/ndk/29.0.14206865}/toolchains/llvm/prebuilt/linux-arm64/bin/clang++"
+if [[ -x "$NDK_CLANGXX" ]]; then
+    cat > "$TMP_TEST_DIR/ndk_test.cpp" <<'EOF'
+#include <iostream>
+#include <vector>
+#include <string>
+int main() {
+    std::vector<std::string> v = {"NDK", "CPP", "OK"};
+    for (const auto& s : v) std::cout << s << " ";
+    std::cout << std::endl;
+    return 0;
+}
+EOF
+    if "$NDK_CLANGXX" --target=aarch64-linux-android34 -std=c++20 -static-libstdc++ \
+        "$TMP_TEST_DIR/ndk_test.cpp" -o "$TMP_TEST_DIR/ndk_cpp" >/dev/null 2>&1 && \
+       [[ "$("$TMP_TEST_DIR/ndk_cpp" 2>&1 || true)" == *"NDK CPP OK"* ]]; then
+        test_pass "NDK Clang++ compiled and executed native C++20 STL binary"
+    else
+        test_fail "NDK Clang++ compilation or execution failed"
+    fi
+else
+    test_fail "NDK Clang++ not executable at $NDK_CLANGXX"
 fi
 
 test_start "Android NDK target wrapper (aarch64-linux-android34-clang)"

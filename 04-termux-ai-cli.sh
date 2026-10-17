@@ -138,7 +138,7 @@ pkg install -y \
 
 # Keep the npm toolchain in the separate user prefix used by npm_fixed.sh.
 mkdir -p "$NPM_BIN" "$NPM_MODULES"
-export PATH="$NPM_BIN:$HOME/.local/bin:$HOME/bin:$PATH"
+export PATH="$HOME/.local/bin:$NPM_BIN:$HOME/bin:$PREFIX/bin:$PATH"
 export npm_config_prefix="$NPM_PREFIX"
 
 # Persist without duplicating lines.
@@ -146,8 +146,8 @@ persist_shell_env() {
     local rc="$1"
     touch "$rc"
 
-    grep -qxF 'export PATH="$HOME/.npm-global/bin:$HOME/.local/bin:$HOME/bin:$PATH"' "$rc" ||
-        printf '%s\n' 'export PATH="$HOME/.npm-global/bin:$HOME/.local/bin:$HOME/bin:$PATH"' >> "$rc"
+    grep -qxF 'export PATH="$HOME/.local/bin:$HOME/.npm-global/bin:$HOME/bin:$PREFIX/bin:$PATH"' "$rc" ||
+        printf '%s\n' 'export PATH="$HOME/.local/bin:$HOME/.npm-global/bin:$HOME/bin:$PREFIX/bin:$PATH"' >> "$rc"
 
     grep -qxF 'export npm_config_prefix="$HOME/.npm-global"' "$rc" ||
         printf '%s\n' 'export npm_config_prefix="$HOME/.npm-global"' >> "$rc"
@@ -388,9 +388,9 @@ if [[ "$INSTALL_COPILOT" == "1" ]]; then
             if [[ -x "$COPILOT_OPT/copilot" ]]; then
                 mkdir -p "$HOME/.local/bin" "$NPM_BIN"
                 for target_dir in "$HOME/.local/bin" "$NPM_BIN"; do
-                    cat > "$target_dir/copilot" <<'LAUNCHER'
+                    cat > "$target_dir/copilot" <<LAUNCHER
 #!/data/data/com.termux/files/usr/bin/bash
-exec grun "/data/data/com.termux/files/usr/opt/copilot/copilot" "$@"
+exec grun "$COPILOT_OPT/copilot" "\$@"
 LAUNCHER
                     chmod 755 "$target_dir/copilot"
                 done

@@ -51,8 +51,8 @@ SUITE_DIR=""
 if [[ -f "./setup.sh" && -f "./test-suite.sh" ]]; then
     SUITE_DIR="$(pwd)"
     info "Running from existing local workspace: $SUITE_DIR"
-elif [[ -d "$HOME/Projects/Termux/new" && -f "$HOME/Projects/Termux/new/setup.sh" ]]; then
-    SUITE_DIR="$HOME/Projects/Termux/new"
+elif [[ -d "$HOME/Termux-Dev" && -f "$HOME/Termux-Dev/setup.sh" ]]; then
+    SUITE_DIR="$HOME/Termux-Dev"
     info "Using existing workspace at: $SUITE_DIR"
 else
     SUITE_DIR="$INSTALL_DIR"
@@ -81,8 +81,8 @@ if [[ -z "$SUITE_DIR" || ! -f "$SUITE_DIR/setup.sh" ]]; then
         SUITE_DIR="$SELF_DIR"
     elif [[ -f "$SELF_DIR/../setup.sh" ]]; then
         SUITE_DIR="$(cd "$SELF_DIR/.." && pwd)"
-    elif [[ -f "$HOME/Projects/Termux/new/setup.sh" ]]; then
-        SUITE_DIR="$HOME/Projects/Termux/new"
+    elif [[ -f "$HOME/Termux-Dev/setup.sh" ]]; then
+        SUITE_DIR="$HOME/Termux-Dev"
     elif [[ -f "$HOME/.termux-suite/setup.sh" ]]; then
         SUITE_DIR="$HOME/.termux-suite"
     fi
@@ -99,15 +99,25 @@ cp -f "$SUITE_DIR/bin/termux-suite" "$BIN_DIR/termux-suite"
 cp -f "$SUITE_DIR/bin/termux-suite" "$BIN_DIR/tsuite"
 cp -f "$SUITE_DIR/bin/termux-suite" "$LOCAL_BIN/termux-suite"
 cp -f "$SUITE_DIR/bin/termux-suite" "$LOCAL_BIN/tsuite"
+
+if [[ -f "$SUITE_DIR/bin/termux-apk-build" ]]; then
+    chmod 755 "$SUITE_DIR/bin/termux-apk-build"
+    cp -f "$SUITE_DIR/bin/termux-apk-build" "$BIN_DIR/termux-apk-build"
+    cp -f "$SUITE_DIR/bin/termux-apk-build" "$LOCAL_BIN/termux-apk-build"
+    chmod 755 "$BIN_DIR/termux-apk-build" "$LOCAL_BIN/termux-apk-build"
+fi
+
 chmod 755 "$BIN_DIR/termux-suite" "$BIN_DIR/tsuite" "$LOCAL_BIN/termux-suite" "$LOCAL_BIN/tsuite"
 
 command -v termux-fix-shebang >/dev/null 2>&1 && {
     termux-fix-shebang "$BIN_DIR/termux-suite" "$BIN_DIR/tsuite" "$LOCAL_BIN/termux-suite" "$LOCAL_BIN/tsuite" 2>/dev/null || true
+    [[ -f "$BIN_DIR/termux-apk-build" ]] && termux-fix-shebang "$BIN_DIR/termux-apk-build" "$LOCAL_BIN/termux-apk-build" 2>/dev/null || true
 }
 
 success "Global CLI commands installed:"
-printf '  - %s%stermux-suite%s (opens interactive TUI)\n' "$BOLD$GREEN" "$NC" "$NC"
-printf '  - %s%stsuite%s        (quick alias)\n\n' "$BOLD$GREEN" "$NC" "$NC"
+printf '  - %s%stermux-suite%s     (opens interactive TUI)\n' "$BOLD$GREEN" "$NC" "$NC"
+printf '  - %s%stsuite%s            (quick alias)\n' "$BOLD$GREEN" "$NC" "$NC"
+printf '  - %s%stermux-apk-build%s  (zero-Gradle instant APK builder)\n\n' "$BOLD$GREEN" "$NC" "$NC"
 
 # Launch interactive TUI immediately
 info "Launching Termux Suite Interactive TUI..."

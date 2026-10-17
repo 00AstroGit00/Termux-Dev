@@ -204,7 +204,7 @@ install_termuxvoid() {
     }
 
     chmod 700 "$installer"
-    bash "$installer"
+    bash "$installer" -s
 }
 
 if [[ "$INSTALL_TERMUXVOID" == "1" ]]; then
@@ -269,39 +269,44 @@ else
 fi
 
 # -----------------------------
-# .zshrc enhancement block
+# Shell rc enhancements (.zshrc & .bashrc)
 # -----------------------------
-ZSHRC="$HOME/.zshrc"
 BACKUP_DIR="$HOME/.config/termux-setup/backups"
 mkdir -p "$BACKUP_DIR"
-
-if [[ -f "$ZSHRC" ]]; then
-    cp -f "$ZSHRC" "$BACKUP_DIR/zshrc.$(date +%Y%m%d%H%M%S).bak"
-    success "Backed up existing .zshrc to $BACKUP_DIR."
-else
-    touch "$ZSHRC"
-fi
 
 BEGIN_MARKER="# >>> TERMUX-SETUP ENHANCEMENTS >>>"
 END_MARKER="# <<< TERMUX-SETUP ENHANCEMENTS <<<"
 
-# Remove a previous generated block cleanly.
-if grep -qF "$BEGIN_MARKER" "$ZSHRC"; then
-    awk -v begin="$BEGIN_MARKER" -v end="$END_MARKER" '
-        $0 == begin {skip=1; next}
-        $0 == end   {skip=0; next}
-        !skip       {print}
-    ' "$ZSHRC" > "$WORKDIR/zshrc.clean"
-    mv "$WORKDIR/zshrc.clean" "$ZSHRC"
-fi
+apply_shell_enhancements() {
+    local rc="$1"
+    local shell_name="$2"
+    local backup_name
+    backup_name="$(basename "$rc")"
 
-cat >> "$ZSHRC" <<'EOF'
+    if [[ -f "$rc" ]]; then
+        cp -f "$rc" "$BACKUP_DIR/${backup_name}.$(date +%Y%m%d%H%M%S).bak"
+        success "Backed up existing $rc to $BACKUP_DIR."
+    else
+        touch "$rc"
+    fi
+
+    # Remove previous generated block cleanly.
+    if grep -qF "$BEGIN_MARKER" "$rc"; then
+        awk -v begin="$BEGIN_MARKER" -v end="$END_MARKER" '
+            $0 == begin {skip=1; next}
+            $0 == end   {skip=0; next}
+            !skip       {print}
+        ' "$rc" > "$WORKDIR/${backup_name}.clean"
+        mv "$WORKDIR/${backup_name}.clean" "$rc"
+    fi
+
+    cat >> "$rc" <<EOF
 
 # >>> TERMUX-SETUP ENHANCEMENTS >>>
 
 # PATH & Environment
-export PATH="$HOME/.local/bin:$HOME/.npm-global/bin:$HOME/bin:$PREFIX/bin:$PATH"
-export npm_config_prefix="$HOME/.npm-global"
+export PATH="\$HOME/.local/bin:\$HOME/.npm-global/bin:\$HOME/bin:\$PREFIX/bin:\$PATH"
+export npm_config_prefix="\$HOME/.npm-global"
 export PIP_REQUIRE_VIRTUALENV=false
 
 # Editors
@@ -311,10 +316,9 @@ export VISUAL="nano"
 # Navigation
 alias ..='cd ..'
 alias ...='cd ../..'
-alias home='cd "$HOME"'
-alias root='cd "$PREFIX/../.."'
-alias download='cd "$HOME/storage/downloads" 2>/dev/null || cd "$HOME/storage/shared/Download"'
-alias zshrc='nano "$HOME/.zshrc"'
+alias home='cd "\$HOME"'
+alias root='cd "\$PREFIX/../.."'
+alias download='cd "\$HOME/storage/downloads" 2>/dev/null || cd "\$HOME/storage/shared/Download"'
 
 # Listing
 alias ll='ls -alF --color=auto'
@@ -346,60 +350,65 @@ alias ssh-stop='pkill sshd'
 alias ssh-status="pgrep -x sshd >/dev/null && echo 'SSH server is running' || echo 'SSH server is not running'"
 
 backup() {
-    if [[ -z "${1:-}" ]]; then
+    if [[ -z "\${1:-}" ]]; then
         echo "Usage: backup <file_or_directory>"
         return 1
     fi
     local stamp
-    stamp="$(date +%Y%m%d%H%M%S)"
-    cp -a -- "$1" "${1}_backup_${stamp}"
-    echo "Backup created: ${1}_backup_${stamp}"
+    stamp="\$(date +%Y%m%d%H%M%S)"
+    cp -a -- "\$1" "\${1}_backup_\${stamp}"
+    echo "Backup created: \${1}_backup_\${stamp}"
 }
 
 extract() {
-    if [[ -z "${1:-}" ]]; then
+    if [[ -z "\${1:-}" ]]; then
         echo "Usage: extract <archive_file>"
         return 1
     fi
 
-    local file="$1"
-    if [[ ! -f "$file" ]]; then
-        echo "$file is not a valid file"
+    local file="\$1"
+    if [[ ! -f "\$file" ]]; then
+        echo "\$file is not a valid file"
         return 1
     fi
 
-    case "$file" in
-        *.tar.bz2|*.tbz2) tar xjf "$file" ;;
-        *.tar.gz|*.tgz)   tar xzf "$file" ;;
-        *.tar.xz)         tar xJf "$file" ;;
-        *.tar)            tar xf "$file" ;;
-        *.zip)            unzip "$file" ;;
-        *.rar)            command -v unrar >/dev/null && unrar x "$file" || echo "Install unrar first." ;;
-        *.7z)             command -v 7z >/dev/null && 7z x "$file" || echo "Install p7zip first." ;;
-        *) echo "Cannot extract $file - unknown format"; return 1 ;;
+    case "\$file" in
+        *.tar.bz2|*.tbz2) tar xjf "\$file" ;;
+        *.tar.gz|*.tgz)   tar xzf "\$file" ;;
+        *.tar.xz)         tar xJf "\$file" ;;
+        *.tar)            tar xf "\$file" ;;
+        *.zip)            unzip "\$file" ;;
+        *.rar)            command -v unrar >/dev/null && unrar x "\$file" || echo "Install unrar first." ;;
+        *.7z)             command -v 7z >/dev/null && 7z x "\$file" || echo "Install p7zip first." ;;
+        *) echo "Cannot extract \$file - unknown format"; return 1 ;;
     esac
 }
 
 pkg-search() {
-    if [[ -z "${1:-}" ]]; then
+    if [[ -z "\${1:-}" ]]; then
         echo "Usage: pkg-search <package_name>"
         return 1
     fi
-    pkg search "$1"
+    pkg search "\$1"
 }
 
 mkcd() {
-    if [[ -z "${1:-}" ]]; then
+    if [[ -z "\${1:-}" ]]; then
         echo "Usage: mkcd <directory_name>"
         return 1
     fi
-    mkdir -p -- "$1" && cd -- "$1"
+    mkdir -p -- "\$1" && cd -- "\$1"
 }
 
 # Optional bat integration
 if command -v bat >/dev/null 2>&1; then
     alias cat='bat --style=plain'
 fi
+EOF
+
+    if [[ "$shell_name" == "zsh" ]]; then
+        cat >> "$rc" <<'EOF'
+alias zshrc='nano "$HOME/.zshrc"'
 
 # Plugin integration when installed by a zsh framework.
 if [[ -f "$PREFIX/share/zsh-autosuggestions/zsh-autosuggestions.zsh" ]]; then
@@ -410,23 +419,41 @@ if [[ -f "$PREFIX/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh" ]];
     source "$PREFIX/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh"
 fi
 
-# History
 HISTSIZE=10000
 SAVEHIST=10000
 HISTFILE="$HOME/.zsh_history"
+EOF
+    else
+        cat >> "$rc" <<'EOF'
+alias bashrc='nano "$HOME/.bashrc"'
+HISTSIZE=10000
+HISTFILESIZE=20000
+HISTFILE="$HOME/.bash_history"
+EOF
+    fi
+
+    cat >> "$rc" <<'EOF'
 
 # <<< TERMUX-SETUP ENHANCEMENTS <<<
 EOF
 
-success "Termux enhancements have been integrated into $ZSHRC."
+    success "Termux enhancements have been integrated into $rc."
+}
+
+apply_shell_enhancements "$HOME/.zshrc" "zsh"
+apply_shell_enhancements "$HOME/.bashrc" "bash"
 
 # -----------------------------
 # Final validation
 # -----------------------------
-info "Validating generated .zshrc syntax..."
-if command -v zsh >/dev/null 2>&1; then
-    zsh -n "$ZSHRC" || die ".zshrc syntax validation failed."
+info "Validating generated shell configuration syntax..."
+if command -v zsh >/dev/null 2>&1 && [[ -f "$HOME/.zshrc" ]]; then
+    zsh -n "$HOME/.zshrc" || die ".zshrc syntax validation failed."
     success ".zshrc syntax validation passed."
+fi
+if [[ -f "$HOME/.bashrc" ]]; then
+    bash -n "$HOME/.bashrc" || die ".bashrc syntax validation failed."
+    success ".bashrc syntax validation passed."
 fi
 
 # Test critical commands exist.

@@ -17,6 +17,12 @@ SETUP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Enforce canonical PATH ordering
 export PATH="$HOME/.local/bin:$HOME/.npm-global/bin:$HOME/bin:$PREFIX/bin:$PATH"
 
+# Prevent CPU doze/sleep during long-running toolchain setups
+if command -v termux-wake-lock >/dev/null 2>&1; then
+    termux-wake-lock 2>/dev/null || true
+    trap 'termux-wake-unlock 2>/dev/null || true' EXIT INT TERM
+fi
+
 # Colors
 RED=$'\033[0;31m'
 GREEN=$'\033[0;32m'
@@ -31,6 +37,21 @@ success() { printf '%s[SUCCESS]%s %s\n' "$GREEN" "$NC" "$*"; }
 warn()    { printf '%s[WARNING]%s %s\n' "$YELLOW" "$NC" "$*" >&2; }
 error()   { printf '%s[ERROR]%s %s\n' "$RED" "$NC" "$*" >&2; }
 die()     { error "$*"; exit 1; }
+
+prune_ndk() {
+    local ndk_lib="${PREFIX:-/data/data/com.termux/files/usr}/opt/android-sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-arm64/sysroot/usr/lib"
+    if [[ -d "$ndk_lib" ]]; then
+        info "Pruning unused cross-compilation sysroots (i686, x86_64, riscv64)..."
+        local before
+        before="$(du -sh "${PREFIX:-/data/data/com.termux/files/usr}/opt/android-sdk/ndk" 2>/dev/null | cut -f1)"
+        rm -rf "$ndk_lib"/i686-* "$ndk_lib"/x86_64-* "$ndk_lib"/riscv64-*
+        local after
+        after="$(du -sh "${PREFIX:-/data/data/com.termux/files/usr}/opt/android-sdk/ndk" 2>/dev/null | cut -f1)"
+        success "NDK storage pruned: before=$before, after=$after."
+    else
+        warn "NDK sysroot directory not found at $ndk_lib"
+    fi
+}
 
 run_stage() {
     local stage_file="$1"
@@ -109,6 +130,7 @@ verify_all() {
     check_cmd "DEX Compiler (d8)" d8
     check_cmd "SDK Manager" sdkmanager
     check_cmd "Android CLI" android
+    check_cmd "APK Builder" termux-apk-build
 
     printf '\n'
 }
@@ -120,7 +142,7 @@ show_dialog_tui() {
             --backtitle "Termux Provisioning & AI Suite Manager (ARM64)" \
             --title " Main Interactive Menu " \
             --cancel-label "Exit" \
-            --menu "Select a stage or action using Up/Down arrow keys and Enter:" 22 72 11 \
+            --menu "Select a stage or action using Up/Down arrow keys and Enter:" 22 72 12 \
             "1" "Run Full Suite (Stages 01 -> 06)" \
             "2" "Stage 01: Base System, Repos & Zsh" \
             "3" "Stage 02: Essentials & Dev Toolchains" \
@@ -131,6 +153,7 @@ show_dialog_tui() {
             "8" "Verify All Installed Tools" \
             "9" "Run Ruthless Stress & Verification Test Suite" \
             "10" "Clean Locks & Temporary Files" \
+            "11" "Prune Unused NDK Sysroots (Save ~600MB)" \
             "0" "Exit" \
             2>&1 >/dev/tty) || break
 
@@ -157,6 +180,7 @@ show_dialog_tui() {
                 rm -rf "${TMPDIR:-$PREFIX/tmp}"/*.lock "${TMPDIR:-$PREFIX/tmp}"/ai-cli-suite* 2>/dev/null || true
                 success "Temporary locks cleared."
                 ;;
+            11) prune_ndk ;;
             0) break ;;
         esac
 
@@ -186,9 +210,10 @@ show_menu() {
     printf '  8) Verify All Installed Tools\n'
     printf '  9) Run Ruthless Stress & Verification Test Suite\n'
     printf ' 10) Clean Locks & Temporary Files\n'
+    printf ' 11) Prune Unused NDK Sysroots (Save ~600MB)\n'
     printf '  0) Exit\n\n'
 
-    read -rp "Select an option [0-10]: " choice
+    read -rp "Select an option [0-11]: " choice
     case "$choice" in
         1)
             run_stage "01-termux-base.sh" "Stage 01: Termux Base Setup"
@@ -212,6 +237,9 @@ show_menu() {
         10)
             rm -rf "${TMPDIR:-$PREFIX/tmp}"/*.lock "${TMPDIR:-$PREFIX/tmp}"/ai-cli-suite* 2>/dev/null || true
             success "Temporary locks cleared."
+            ;;
+        11)
+            prune_ndk
             ;;
         0|q|Q)
             info "Exiting."
@@ -263,6 +291,9 @@ if [[ $# -gt 0 ]]; then
             rm -rf "${TMPDIR:-$PREFIX/tmp}"/*.lock "${TMPDIR:-$PREFIX/tmp}"/ai-cli-suite* 2>/dev/null || true
             success "Temporary locks cleared."
             ;;
+        --prune-ndk)
+            prune_ndk
+            ;;
         --help|-h)
             printf 'Usage: %s [OPTION]\n\n' "$(basename "$0")"
             printf 'Options:\n'
@@ -275,6 +306,7 @@ if [[ $# -gt 0 ]]; then
             printf '  --android     Execute Stage 06: Android SDK & NDK Setup\n'
             printf '  --verify      Verify all installed tools\n'
             printf '  --test        Run ruthless stress & verification test suite\n'
+            printf '  --prune-ndk   Prune unused NDK sysroots (saves ~600MB storage)\n'
             printf '  --clean       Remove locks and temporary files\n'
             printf '  --help        Display this help message\n'
             exit 0

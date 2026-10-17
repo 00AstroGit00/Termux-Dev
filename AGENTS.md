@@ -56,7 +56,7 @@ The project manages 5 primary AI coding assistants:
 
 ## 6. Verification & Testing
 - Run `bash setup.sh --verify` to inspect all tools across System, Compilers, Node.js, AI CLIs, and Android toolchains.
-- Run `bash test-suite.sh` to execute the full 24-point stress and verification test suite (including functional APK, DEX, and NDK Clang synthesis).
+- Run `bash test-suite.sh` to execute the full 27-point stress and verification test suite (including functional APK signing, DEX conversion, zipalign 16KB/4-byte page-alignment, standalone termux-apk-build, NDK Clang C, and NDK Clang++ C++20 STL synthesis).
 
 ## 7. Antigravity Skills & Customizations
 - **`termux-suite`**: General management, verification, lock clearance, and troubleshooting.

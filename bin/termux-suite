@@ -16,8 +16,8 @@ if [[ -z "$SUITE_DIR" || ! -f "$SUITE_DIR/setup.sh" ]]; then
         SUITE_DIR="$SELF_DIR"
     elif [[ -f "$SELF_DIR/../setup.sh" ]]; then
         SUITE_DIR="$(cd "$SELF_DIR/.." && pwd)"
-    elif [[ -f "$HOME/Projects/Termux/new/setup.sh" ]]; then
-        SUITE_DIR="$HOME/Projects/Termux/new"
+    elif [[ -f "$HOME/Termux-Dev/setup.sh" ]]; then
+        SUITE_DIR="$HOME/Termux-Dev"
     elif [[ -f "$HOME/.termux-suite/setup.sh" ]]; then
         SUITE_DIR="$HOME/.termux-suite"
     fi

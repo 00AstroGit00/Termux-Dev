@@ -68,8 +68,8 @@ Stock Termux is lightweight, but turning it into a complete, professional softwa
   - **Google Gemini (`gemini`)**: Official CLI with interactive prompts
   - **GitHub Copilot (`copilot`)**: Glibc runtime-bridged binary with seamless device auth
 - **🔒 Kernel Concurrency Locking**: Every stage uses kernel-managed `flock` locks, preventing race conditions or corrupted partial runs while remaining immune to stale lockfiles after crashes.
-- **🛡️ Clean Shell & Secret Isolation**: User-global npm prefix (`~/.npm-global`), isolated private keys (`~/.ai-env` with `0600` permissions), and persistent environment profiles (`~/.android-env`).
-- **🧪 Ruthless 19-Point Stress Test Suite**: Rigorously tests file locks, PATH precedence, permissions, shebang integrity, compilers, all 5 AI engines, and the complete Android toolchain.
+- **🛡️ Clean Shell & Secret Isolation**: Dual-shell parity for Bash and Zsh, user-global npm prefix (`~/.npm-global`), isolated private keys (`~/.ai-env` with `0600` permissions), and persistent environment profiles (`~/.android-env`).
+- **🧪 Ruthless 27-Point Stress Test Suite**: Rigorously tests file locks, PATH precedence, permissions, shebang integrity, compilers, all 5 AI engines, the complete Android SDK/NDK toolchain, and Android 15+ 16KB page-aligned APK generation.
 
 ---
 
@@ -98,7 +98,7 @@ Stock Termux is lightweight, but turning it into a complete, professional softwa
                               │
                               ▼
   ┌────────────────────────────────────────────────────────┐
-  │        Ruthless 19-Point Automated Test Suite          │
+  │        Ruthless 27-Point Automated Test Suite          │
   └────────────────────────────────────────────────────────┘
 ```
 
@@ -171,7 +171,8 @@ You can also run specific tasks directly without the TUI:
 ./setup.sh --ai-env      # Stage 05: Setup private ~/.ai-env template
 ./setup.sh --android     # Stage 06: Android SDK, NDK & TermuxVoid setup
 ./setup.sh --verify      # Inspect status of all installed tools
-./setup.sh --test        # Run ruthless 24-point stress & verification suite
+./setup.sh --test        # Run ruthless 26-point stress & verification suite
+./setup.sh --prune-ndk   # Prune unused NDK sysroots (reclaims ~200-600MB)
 ./setup.sh --clean       # Remove temporary locks and cache files
 ./setup.sh --help        # Display usage information
 ```
@@ -309,7 +310,7 @@ The suite packages and maintains 5 leading terminal AI coding assistants:
 
 ## 🧪 Automated Verification & Stress Test Suite
 
-Execute the full 24-point verification suite at any time:
+Execute the full 27-point verification suite at any time:
 
 ```bash
 bash test-suite.sh
@@ -332,11 +333,11 @@ termux-suite --test
 ▶ [TEST] Python 3 runtime & stdlib execution ... PASS (PYTHON_OK 3.14)
 ▶ [TEST] Node.js 24 LTS runtime & architecture execution ... PASS (NODE_OK v24.18.0 arm64)
 ▶ [TEST] pnpm ARM64 compatibility execution ... PASS (pnpm pinned version: 10.33.4)
-▶ [TEST] Antigravity CLI (agy) functional execution ... PASS (1.3.3)
-▶ [TEST] OpenCode (opencode) functional execution ... PASS (1.18.35)
-▶ [TEST] OpenAI Codex CLI (codex) functional execution ... PASS (codex-cli 0.160.0)
-▶ [TEST] Google Gemini CLI (gemini) functional execution ... PASS (0.63.0)
-▶ [TEST] GitHub Copilot CLI (copilot via grun) functional execution ... PASS (1.0.95)
+▶ [TEST] Antigravity CLI (agy) functional execution ... PASS (1.4.0)
+▶ [TEST] OpenCode (opencode) functional execution ... PASS (1.19.3)
+▶ [TEST] OpenAI Codex CLI (codex) functional execution ... PASS (codex-cli 0.162.1)
+▶ [TEST] Google Gemini CLI (gemini) functional execution ... PASS (0.64.0)
+▶ [TEST] GitHub Copilot CLI (copilot via grun) functional execution ... PASS (1.0.97)
 ▶ [TEST] TermuxVoid package manager (tvpkg) ... PASS
 ▶ [TEST] Java OpenJDK 21 execution ... PASS (openjdk 21.0.12)
 ▶ [TEST] Gradle build system execution ... PASS (Gradle 9.8.1)
@@ -344,13 +345,16 @@ termux-suite --test
 ▶ [TEST] Android Debug Bridge (adb) socket protocol execution ... PASS
 ▶ [TEST] Android SDK Manager (sdkmanager) ... PASS (19.0)
 ▶ [TEST] Android NDK LLVM Clang compiler execution ... PASS (Clang 21.0.0)
-▶ [TEST] AAPT2 & d8 minimal APK and DEX synthesis ... PASS
+▶ [TEST] AAPT2, d8 & apksigner APK synthesis and signing ... PASS
+▶ [TEST] Standalone zero-Gradle APK builder (termux-apk-build) ... PASS
+▶ [TEST] Android APK zipalign 4-byte & 16KB page alignment verification ... PASS
 ▶ [TEST] Android NDK native C compilation (ARM64) ... PASS
+▶ [TEST] Android NDK native C++20 STL compilation (ARM64) ... PASS
 ▶ [TEST] Android NDK target wrapper (aarch64-linux-android34-clang) ... PASS
-▶ [TEST] Google Android CLI (android) operational execution ... PASS (1.0.16500706)
+▶ [TEST] Google Android CLI (android) operational execution ... PASS (1.0.16625370)
 
 === Test Suite Results ===
-  Passed:   24
+  Passed:   27
   Warnings: 0
   Failed:   0
 
@@ -426,7 +430,8 @@ Termux-Dev/
 │       └── termux-security-audit/
 │           └── SKILL.md        # Antigravity security & sandbox audit runbook
 ├── bin/
-│   └── termux-suite            # Global CLI launcher executable
+│   ├── termux-suite            # Global CLI launcher executable
+│   └── termux-apk-build        # Zero-Gradle instant standalone APK builder
 ├── 01-termux-base.sh           # Stage 01: System repos, core packages, Zsh, SSH
 ├── 02-termux-essentials.sh     # Stage 02: Compilers, Python, Rust, Go, tools
 ├── 03-termux-node-toolchain.sh # Stage 03: Node.js LTS, isolated npm, pnpm, Yarn
@@ -435,7 +440,7 @@ Termux-Dev/
 ├── 06-termux-android-sdk.sh    # Stage 06: Android SDK, NDK, TermuxVoid, Java
 ├── setup.sh                    # Master orchestrator (TUI & CLI interface)
 ├── install.sh                  # One-line curl bootstrap installer
-├── test-suite.sh               # Ruthless 24-point stress & verification suite
+├── test-suite.sh               # Ruthless 26-point stress & verification suite
 ├── AGENTS.md                   # Antigravity workspace rules & guidelines
 ├── LICENSE                     # Apache 2.0 Open Source License
 ├── .shellcheckrc               # ShellCheck linting configuration

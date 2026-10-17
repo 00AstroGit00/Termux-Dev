@@ -292,8 +292,13 @@ install_group() {
     fi
 
     info "Installing ${group_name}: ${#AVAILABLE[@]} packages..."
-    pkg install -y "${AVAILABLE[@]}"
-    success "${group_name} installed."
+    if ! pkg install -y "${AVAILABLE[@]}"; then
+        warn "Batch installation failed for ${group_name}; attempting individual package recovery..."
+        for p in "${AVAILABLE[@]}"; do
+            pkg install -y "$p" || warn "Package '$p' could not be installed; skipping."
+        done
+    fi
+    success "${group_name} processing complete."
 
     # Preserve previous availability list if needed by callers.
     AVAILABLE=("${old_available[@]}")
@@ -437,7 +442,10 @@ BASHRC="$HOME/.bashrc"
 for rc in "$ZSHRC" "$BASHRC"; do
     touch "$rc"
 
-    line='export PATH="$HOME/.local/bin:$HOME/bin:$PATH"'
+    line='export PATH="$HOME/.local/bin:$HOME/.npm-global/bin:$HOME/bin:$PREFIX/bin:$PATH"'
+    grep -qxF "$line" "$rc" || printf '%s\n' "$line" >> "$rc"
+
+    line='export npm_config_prefix="$HOME/.npm-global"'
     grep -qxF "$line" "$rc" || printf '%s\n' "$line" >> "$rc"
 
     line='export PIP_REQUIRE_VIRTUALENV=false'

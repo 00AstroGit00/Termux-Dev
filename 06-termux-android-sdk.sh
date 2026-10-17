@@ -70,16 +70,23 @@ fi
 # 1. TermuxVoid Repository
 # -----------------------------
 info "Configuring TermuxVoid repository..."
+for repo_pkg in x11-repo glibc-repo; do
+    if ! dpkg -s "$repo_pkg" >/dev/null 2>&1; then
+        apt-get install -y "$repo_pkg" || warn "Could not install $repo_pkg immediately."
+    fi
+done
+
 if [[ ! -f "$PREFIX/etc/apt/sources.list.d/termuxvoid.list" ]]; then
     mkdir -p "$PREFIX/etc/apt/sources.list.d" "$PREFIX/etc/apt/trusted.gpg.d"
     echo 'deb [arch=all] https://termuxvoid.github.io/repo termuxvoid main' > "$PREFIX/etc/apt/sources.list.d/termuxvoid.list"
     curl -fsSL https://github.com/termuxvoid/repo/raw/main/assets/termuxvoid.gpg -o "$PREFIX/etc/apt/trusted.gpg.d/termuxvoid.gpg"
     apt-get update -y
-    apt-get install -y tvpkg || warn "tvpkg package could not be installed immediately."
-    success "TermuxVoid repository added successfully."
-else
-    success "TermuxVoid repository is already configured."
 fi
+
+if ! command -v tvpkg >/dev/null 2>&1; then
+    apt-get install -y tvpkg || warn "tvpkg package could not be installed immediately."
+fi
+success "TermuxVoid repository and tvpkg configured."
 
 # -----------------------------
 # 2. Prerequisites & Build Tools
@@ -116,22 +123,28 @@ info "Applying Termux architecture and shebang patches..."
 
 # Patch cmdline-tools structure for automatic SDK root detection
 CMDLINE_ROOT="$ANDROID_HOME/cmdline-tools"
-if [[ -d "$CMDLINE_ROOT" && ! -d "$CMDLINE_ROOT/latest/bin" ]]; then
+if [[ -d "$CMDLINE_ROOT" ]]; then
     mkdir -p "$CMDLINE_ROOT/latest/bin"
+    if [[ -d "$CMDLINE_ROOT/bin" ]]; then
+        for b in "$CMDLINE_ROOT/bin"/*; do
+            [[ -f "$b" ]] && cp -pf "$b" "$CMDLINE_ROOT/latest/bin/"
+        done
+    fi
     for tool in apkanalyzer avdmanager d8 lint profgen r8 resourceshrinker retrace screenshot2 sdkmanager; do
         if [[ -f "$CMDLINE_ROOT/latest/$tool" ]]; then
-            mv "$CMDLINE_ROOT/latest/$tool" "$CMDLINE_ROOT/latest/bin/"
+            mv -f "$CMDLINE_ROOT/latest/$tool" "$CMDLINE_ROOT/latest/bin/"
         elif [[ -f "$CMDLINE_ROOT/$tool" ]]; then
-            mv "$CMDLINE_ROOT/$tool" "$CMDLINE_ROOT/latest/bin/"
+            mv -f "$CMDLINE_ROOT/$tool" "$CMDLINE_ROOT/latest/bin/"
         fi
     done
-    [[ -d "$CMDLINE_ROOT/lib" && ! -d "$CMDLINE_ROOT/latest/lib" ]] && mv "$CMDLINE_ROOT/lib" "$CMDLINE_ROOT/latest/"
+    [[ -d "$CMDLINE_ROOT/lib" && ! -d "$CMDLINE_ROOT/latest/lib" ]] && cp -rpf "$CMDLINE_ROOT/lib" "$CMDLINE_ROOT/latest/"
 fi
 
 # Shebang fixes for Termux prefix
 command -v termux-fix-shebang >/dev/null 2>&1 && {
-    termux-fix-shebang "$CMDLINE_ROOT/latest/bin"/* 2>/dev/null || true
-    termux-fix-shebang "$ANDROID_HOME/build-tools/$BUILD_TOOLS_VERSION"/* 2>/dev/null || true
+    [[ -d "$CMDLINE_ROOT/latest/bin" ]] && termux-fix-shebang "$CMDLINE_ROOT/latest/bin"/* 2>/dev/null || true
+    [[ -d "$CMDLINE_ROOT/bin" ]] && termux-fix-shebang "$CMDLINE_ROOT/bin"/* 2>/dev/null || true
+    [[ -d "$ANDROID_HOME/build-tools/$BUILD_TOOLS_VERSION" ]] && termux-fix-shebang "$ANDROID_HOME/build-tools/$BUILD_TOOLS_VERSION"/* 2>/dev/null || true
 }
 
 # Restore NDK clang++ symlink if ignored by 7z during extraction
@@ -169,7 +182,8 @@ ANDROID_CLI_BIN="$HOME/.android/bin/android-cli"
 if [[ ! -f "$ANDROID_CLI_BIN" ]]; then
     info "Downloading Google Android CLI for ARM64..."
     TMP_DL="${TMPDIR:-$PREFIX/tmp}/android_dl_$$"
-    if curl -fsSL "https://dl.google.com/android/cli/latest/linux_arm64/android" -o "$TMP_DL"; then
+    if wget -c "https://dl.google.com/android/cli/latest/linux_arm64/android" -O "$TMP_DL" 2>/dev/null || \
+       curl -fL --retry 3 --retry-delay 2 "https://dl.google.com/android/cli/latest/linux_arm64/android" -o "$TMP_DL"; then
         chmod +x "$TMP_DL"
         # First execution self-extracts payload to ~/.android/bin/android-cli
         grun "$TMP_DL" --help >/dev/null 2>&1 || true
@@ -188,10 +202,12 @@ if [[ -f "$ANDROID_CLI_BIN" && -f "$PREFIX/glibc/lib/ld-linux-aarch64.so.1" ]]; 
 #!/data/data/com.termux/files/usr/bin/bash
 export ANDROID_HOME="${ANDROID_HOME:-/data/data/com.termux/files/usr/opt/android-sdk}"
 export ANDROID_SDK_ROOT="${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
-exec env -u LD_PRELOAD "$HOME/.android/bin/android-cli" "$@"
+exec env -u LD_PRELOAD "$HOME/.android/bin/android-cli" --no-metrics "$@"
 WRAPPER_EOF
     chmod +x "$HOME/.local/bin/android"
+    command -v termux-fix-shebang >/dev/null 2>&1 && termux-fix-shebang "$HOME/.local/bin/android" 2>/dev/null || true
     success "Google Android CLI configured at $HOME/.local/bin/android."
+    "$HOME/.local/bin/android" init >/dev/null 2>&1 || true
 fi
 
 # -----------------------------
@@ -240,8 +256,11 @@ org.gradle.vfs.watch=false
 # Enable parallel execution across mobile CPU cores
 org.gradle.parallel=true
 
-# JVM Memory and Garbage Collection optimization for mobile ARM64
-org.gradle.jvmargs=-Xmx2048m -XX:+UseG1GC -XX:MaxMetaspaceSize=512m
+# JVM Memory and Garbage Collection optimization for mobile ARM64 (protect against OOM killer)
+org.gradle.jvmargs=-Xmx1280m -XX:+UseG1GC -XX:MaxMetaspaceSize=384m
+
+# Automatically shut down idle daemons after 1 minute to release RAM
+org.gradle.daemon.idletimeout=60000
 
 # Disable automatic SDK download attempt (which downloads x86_64 packages)
 android.builder.sdkDownload=false

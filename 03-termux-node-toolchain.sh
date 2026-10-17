@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/data/data/com.termux/files/usr/bin/bash
 #
 # Termux Node.js / npm / Yarn / pnpm bootstrap
 # Android/ARM64-safe design.
@@ -215,6 +215,9 @@ if [[ "$INSTALLED_PNPM" != "$PNPM_VERSION" ]]; then
 fi
 
 log "pnpm ${INSTALLED_PNPM} installed successfully."
+
+# Patch executable shebangs for native Termux execution
+command -v termux-fix-shebang >/dev/null 2>&1 && termux-fix-shebang "$BIN_DIR"/* 2>/dev/null || true
 
 # -------------------------
 # Verification
