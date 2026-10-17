@@ -410,7 +410,7 @@ show_quick_help_dialog() {
 
     DIALOGRC="$theme_file" dialog --colors \
         --title " \Zb\Z6Help & Quick Reference\Zn " \
-        --msgbox "$help_text" 0 0
+        --msgbox "$help_text" 0 0 || true
 }
 
 show_quick_help_ansi() {
@@ -500,6 +500,7 @@ THEME_EOF
         get_stage_status 5 && s5_d="\Zb\Z2[✓]\Zn" || s5_d="\Zb\Z1[○]\Zn"
         get_stage_status 6 && s6_d="\Zb\Z2[✓]\Zn" || s6_d="\Zb\Z1[○]\Zn"
 
+        exit_code=0
         choice=$(DIALOGRC="$theme_file" dialog --stdout --clear \
             --colors \
             --backtitle "$backtitle" \
@@ -526,8 +527,7 @@ THEME_EOF
             "14" "✂️  Prune Unused NDK Sysroots (Save ~600MB)" \
             "15" "🧹 Deep Clean Cache, Temp Files & Locks" \
             "16" "🛡️  Install Local Git Pre-Commit Hook" \
-            "0"  "🚪 Exit to Shell")
-        exit_code=$?
+            "0"  "🚪 Exit to Shell") || exit_code=$?
 
         # Handle Help and Doctor buttons
         if [[ $exit_code -eq 2 ]]; then
