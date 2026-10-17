@@ -346,18 +346,7 @@ build_apk_interactive() {
 }
 
 show_dialog_tui() {
-    local choice
-    local term_lines term_cols win_height win_width list_height
-    term_lines=$(tput lines 2>/dev/null || echo 24)
-    term_cols=$(tput cols 2>/dev/null || echo 80)
-
-    # Adaptive geometry for mobile portrait/landscape screens
-    win_height=$(( term_lines > 26 ? 24 : term_lines - 2 ))
-    win_width=$(( term_cols > 82 ? 78 : term_cols - 2 ))
-    (( win_width < 45 )) && win_width=45
-    list_height=$(( win_height - 9 ))
-    (( list_height < 5 )) && list_height=5
-
+    local choice exit_code
     local ram_free disk_free
     ram_free="$(free -h 2>/dev/null | awk '/Mem:/ {print $7}' || echo 'N/A')"
     disk_free="$(df -h "${PREFIX:-/data/data/com.termux/files/usr}" 2>/dev/null | awk 'NR==2 {print $4}' || echo 'N/A')"
@@ -394,15 +383,21 @@ uarrow_color = (GREEN,BLACK,ON)
 darrow_color = (GREEN,BLACK,ON)
 THEME_EOF
 
+    # Validate that dialog can initialize on this terminal; fallback to ANSI menu if not
+    if ! DIALOGRC="$theme_file" dialog --colors --print-maxsize >/dev/null 2>&1; then
+        rm -f "$theme_file" 2>/dev/null || true
+        show_menu_ansi
+        return
+    fi
+
     while true; do
-        choice=$(dialog --clear \
-            --rc-file "$theme_file" \
+        choice=$(DIALOGRC="$theme_file" dialog --stdout --clear \
             --colors \
             --backtitle "$backtitle" \
             --title " \Zb\Z6Termux Developer Suite\Zn " \
             --cancel-label "Exit" \
             --menu "Select an action with \Zb\Z3Up/Down\Zn and press \Zb\Z3Enter\Zn:" \
-            "$win_height" "$win_width" "$list_height" \
+            0 0 0 \
             "1"  "▶  Run Complete Pipeline (Stages 01 -> 06)" \
             "2"  "📦 Stage 01: Base System, Repos & Zsh" \
             "3"  "⚙️  Stage 02: Essentials & Dev Toolchains" \
@@ -419,8 +414,13 @@ THEME_EOF
             "14" "✂️  Prune Unused NDK Sysroots (Save ~600MB)" \
             "15" "🧹 Deep Clean Cache, Temp Files & Locks" \
             "16" "🛡️  Install Local Git Pre-Commit Hook" \
-            "0"  "🚪 Exit to Shell" \
-            2>&1 >/dev/tty) || break
+            "0"  "🚪 Exit to Shell")
+        exit_code=$?
+
+        # Exit if cancelled, ESC pressed, or dialog exited with error
+        if [[ $exit_code -ne 0 ]]; then
+            break
+        fi
 
         clear
         case "$choice" in
@@ -441,11 +441,11 @@ THEME_EOF
             7) run_stage "06-termux-android-sdk.sh" "Stage 06: Android SDK & NDK Toolchain" ;;
             8)
                 local p_dir o_apk
-                p_dir=$(dialog --clear --rc-file "$theme_file" --title " Project Directory " \
-                    --inputbox "Enter path to Android project / directory:" 10 60 "$(pwd)" 2>&1 >/dev/tty) || p_dir=""
+                p_dir=$(DIALOGRC="$theme_file" dialog --stdout --clear --title " Project Directory " \
+                    --inputbox "Enter path to Android project / directory:" 10 60 "$(pwd)") || p_dir=""
                 if [[ -n "$p_dir" ]]; then
-                    o_apk=$(dialog --clear --rc-file "$theme_file" --title " Output APK " \
-                        --inputbox "Enter output APK filename:" 10 60 "app-signed.apk" 2>&1 >/dev/tty) || o_apk="app-signed.apk"
+                    o_apk=$(DIALOGRC="$theme_file" dialog --stdout --clear --title " Output APK " \
+                        --inputbox "Enter output APK filename:" 10 60 "app-signed.apk") || o_apk="app-signed.apk"
                     clear
                     "$SETUP_DIR/bin/termux-apk-build" -p "$p_dir" -o "${o_apk:-app-signed.apk}"
                 fi
@@ -468,12 +468,7 @@ THEME_EOF
     clear 2>/dev/null || true
 }
 
-show_menu() {
-    if command -v dialog >/dev/null 2>&1 && [[ -t 0 && -t 1 ]] && [[ "${USE_TUI:-1}" != "0" ]]; then
-        show_dialog_tui
-        return
-    fi
-
+show_menu_ansi() {
     local ram_free disk_free
     while true; do
         ram_free="$(free -h 2>/dev/null | awk '/Mem:/ {print $7}' || echo 'N/A')"
@@ -554,6 +549,14 @@ show_menu() {
         printf '\n%sPress Enter to return to the interactive menu...%s' "$BOLD$CYAN" "$NC"
         read -r
     done
+}
+
+show_menu() {
+    if command -v dialog >/dev/null 2>&1 && [[ -t 0 && -t 1 ]] && [[ "${USE_TUI:-1}" != "0" ]]; then
+        show_dialog_tui
+        return
+    fi
+    show_menu_ansi
 }
 
 # CLI Argument parsing
