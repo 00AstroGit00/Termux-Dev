@@ -381,6 +381,70 @@ get_stage_status() {
     esac
 }
 
+show_quick_help_dialog() {
+    local theme_file="$1"
+    local help_text="\Zb\Z6Termux Developer Suite\Zn - Quick Reference Guide\n\n\
+\ZbNavigation Controls:\Zn\n\
+  • \ZbUp/Down\Zn    : Highlight menu items\n\
+  • \ZbEnter\Zn      : Select and run the highlighted item\n\
+  • \ZbTab\Zn        : Switch focus between Select, Doctor, Help, and Exit buttons\n\
+  • \ZbEsc\Zn        : Exit / Return to Shell\n\n\
+\ZbKey Capabilities:\Zn\n\
+  • \Zb[1] Pipeline\Zn    : Complete workstation setup (Stages 01 -> 06)\n\
+  • \Zb[2-7] Stages\Zn    : Base, Tools, Node.js 24, AI CLIs, Credentials, Android\n\
+  • \Zb[8] APK Builder\Zn : Zero-Gradle instant Android APK compilation (<1s)\n\
+  • \Zb[9] Verify\Zn      : Full toolchain status audit across all compilers & CLIs\n\
+  • \Zb[10] 30-Pt Test\Zn : Ruthless stress & verification test suite\n\
+  • \Zb[11] Doctor\Zn     : Hardware telemetry, RAM, storage & diagnostics\n\
+  • \Zb[12] Keys\Zn       : Modern developer extra-keys fast touch coding bar\n\
+  • \Zb[13] PPK\Zn        : Disable Android Phantom Process Killer\n\
+  • \Zb[14] Prune NDK\Zn  : Reclaims ~600MB storage by removing unused sysroots\n\
+  • \Zb[15] Clean\Zn      : Deep clean package archives, caches & locks\n\
+  • \Zb[16] Pre-Commit\Zn : Install local Git security & ShellCheck hook\n\n\
+\ZbGlobal CLI Commands:\Zn\n\
+  • \Zbtsuite --apk\Zn      : Build APK directly from command line\n\
+  • \Zbtsuite --verify\Zn   : Run toolchain verification\n\
+  • \Zbtsuite --test\Zn     : Run 30-point test suite\n\
+  • \Zbtsuite --doctor\Zn   : System diagnostics\n\
+  • \Zbtsuite --clean\Zn    : Release locks & purge temp caches"
+
+    DIALOGRC="$theme_file" dialog --colors \
+        --title " \Zb\Z6Help & Quick Reference\Zn " \
+        --msgbox "$help_text" 0 0
+}
+
+show_quick_help_ansi() {
+    clear 2>/dev/null || true
+    printf '%s╭───────────────────────────────────────────────────────────────────╮%s\n' "$CYAN" "$NC"
+    printf '%s│%s   📖 \033[1;37mTermux Developer Suite - Quick Reference Guide\033[0m              %s│%s\n' "$CYAN" "$BOLD" "$CYAN" "$NC"
+    printf '%s╰───────────────────────────────────────────────────────────────────╯%s\n\n' "$CYAN" "$NC"
+
+    printf '%sNavigation & Shortcuts:%s\n' "$BOLD$YELLOW" "$NC"
+    printf '  • Type any option number %s(1-16, 0)%s or mnemonic letter %s(A-Z)%s and press Enter.\n' "$CYAN" "$NC" "$CYAN" "$NC"
+    printf '  • Tab-completion is available for all flags: %stsuite --<TAB>%s\n\n' "$GREEN" "$NC"
+
+    printf '%sCore Features:%s\n' "$BOLD$YELLOW" "$NC"
+    printf '  %s[1/A]%s Run Complete Pipeline    : Sequential execution of Stages 01 to 06.\n' "$BOLD$CYAN" "$NC"
+    printf '  %s[2-7]%s Modular Stages          : Individual provisioning stages.\n' "$BOLD$CYAN" "$NC"
+    printf '  %s[8/K]%s Standalone APK Builder  : Sub-second zero-Gradle APK compilation engine.\n' "$BOLD$GREEN" "$NC"
+    printf '  %s[9/V]%s Verify All Toolchains   : Status report of all compilers, SDKs, and CLIs.\n' "$BOLD$GREEN" "$NC"
+    printf ' %s[10/T]%s 30-Point Stress Suite   : Full regression test verifying locks, DEX, APK, NDK.\n' "$BOLD$GREEN" "$NC"
+    printf ' %s[11/H]%s System Doctor           : Real-time RAM, storage, and platform diagnostics.\n' "$BOLD$GREEN" "$NC"
+    printf ' %s[12/X]%s Developer Extra-Keys    : Fast mobile coding keyboard bar in Termux.\n' "$BOLD$YELLOW" "$NC"
+    printf ' %s[13/P]%s Disable PPK             : Remove 32-child-process background restriction.\n' "$BOLD$YELLOW" "$NC"
+    printf ' %s[14/R]%s Prune Unused NDK        : Save ~600MB storage by removing unused sysroots.\n' "$BOLD$YELLOW" "$NC"
+    printf ' %s[15/C]%s Deep Clean System       : Clear caches, apt archives, and stale locks.\n' "$BOLD$YELLOW" "$NC"
+    printf ' %s[16/G]%s Install Pre-Commit Hook : Non-destructive Git commit validation hook.\n\n' "$BOLD$YELLOW" "$NC"
+
+    printf '%sGlobal Commands:%s\n' "$BOLD$YELLOW" "$NC"
+    printf '  tsuite                 : Open interactive TUI from anywhere\n'
+    printf '  termux-apk-build -p .  : Compile current Android project into signed APK\n'
+    printf '  tsuite --doctor        : Run system health diagnostics\n'
+    printf '  tsuite --test          : Run 30-point stress test\n\n'
+    printf '%sPress Enter to return to the interactive menu...%s' "$BOLD$CYAN" "$NC"
+    read -r
+}
+
 show_dialog_tui() {
     local choice exit_code
     local ram_free disk_free backtitle
@@ -440,6 +504,9 @@ THEME_EOF
             --colors \
             --backtitle "$backtitle" \
             --title " \Zb\Z6Termux Developer Suite\Zn " \
+            --ok-label "Select" \
+            --extra-button --extra-label "Doctor" \
+            --help-button --help-label "Help" \
             --cancel-label "Exit" \
             --menu "Select an action with \Zb\Z3Up/Down\Zn and press \Zb\Z3Enter\Zn:" \
             0 0 0 \
@@ -462,8 +529,17 @@ THEME_EOF
             "0"  "🚪 Exit to Shell")
         exit_code=$?
 
-        # Exit if cancelled, ESC pressed, or dialog exited with error
-        if [[ $exit_code -ne 0 ]]; then
+        # Handle Help and Doctor buttons
+        if [[ $exit_code -eq 2 ]]; then
+            show_quick_help_dialog "$theme_file"
+            continue
+        elif [[ $exit_code -eq 3 ]]; then
+            clear
+            doctor_system
+            printf '\n%sPress Enter to return to the interactive menu...%s' "$BOLD$CYAN" "$NC"
+            read -r
+            continue
+        elif [[ $exit_code -ne 0 ]]; then
             break
         fi
 
@@ -558,9 +634,10 @@ show_menu_ansi() {
         printf '  %s[16/G]%s  🛡️  Install Local Git Pre-Commit Security Lint Hook\n' "$BOLD$YELLOW" "$NC"
         printf ' %s└───────────────────────────────────────────────────────────────────┘%s\n\n' "$YELLOW" "$NC"
 
+        printf '  %s[?/U]%s  📖 Help & Documentation Guide\n' "$BOLD$CYAN" "$NC"
         printf '  %s[0/Q]%s  🚪 Exit to Shell\n\n' "$BOLD$RED" "$NC"
 
-        printf '%sSelect an option [1-16, A-Z, or 0/Q to exit]: %s' "$BOLD$CYAN" "$NC"
+        printf '%sSelect an option [1-16, A-Z, ?, or 0/Q to exit]: %s' "$BOLD$CYAN" "$NC"
         read -rp "" raw_choice
         local choice
         choice="$(echo "${raw_choice:-}" | tr '[:upper:]' '[:lower:]' | tr -d '[:space:]')"
@@ -590,6 +667,9 @@ show_menu_ansi() {
             14|r) prune_ndk ;;
             15|c) clean_system ;;
             16|g) install_git_hooks ;;
+            \?|u|help)
+                show_quick_help_ansi
+                ;;
             0|q)
                 info "Exiting."
                 exit 0
