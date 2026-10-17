@@ -140,8 +140,12 @@ if [[ "$CLEAN_CACHE" == "1" && -d "$CACHE_DIR" ]]; then
     rm -rf "$CACHE_DIR"
 fi
 
-mkdir -p "$BUILD_DIR/classes" "$BUILD_DIR/gen"
-trap 'rm -rf "$BUILD_DIR"' EXIT INT TERM
+if command -v termux-wake-lock >/dev/null 2>&1; then
+    termux-wake-lock 2>/dev/null || true
+    trap 'rm -rf "$BUILD_DIR"; termux-wake-unlock 2>/dev/null || true' EXIT INT TERM
+else
+    trap 'rm -rf "$BUILD_DIR"' EXIT INT TERM
+fi
 
 printf '\033[0;34m[INFO]\033[0m Compiling resources with AAPT2...\n'
 AAPT_ARGS=("-I" "$PLATFORM_JAR" "--manifest" "$MANIFEST" "--java" "$BUILD_DIR/gen" "--auto-add-overlay" "-o" "$BUILD_DIR/app-unaligned.apk")

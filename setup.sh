@@ -153,11 +153,21 @@ doctor_system() {
     # Disk Space
     printf '%s[Storage]%s\n' "$BOLD$YELLOW" "$NC"
     df -h "${PREFIX:-/data/data/com.termux/files/usr}" "${HOME}" 2>/dev/null | awk 'NR==1 || /data/'
+    local avail_kb
+    avail_kb="$(df -k "${HOME}" 2>/dev/null | awk 'NR==2 {print $4}' || echo "")"
+    if [[ "$avail_kb" =~ ^[0-9]+$ ]] && (( avail_kb < 2097152 )); then
+        printf '  %s[WARNING] Low storage detected (<2GB available). SDK and Gradle builds may fail.%s\n' "$YELLOW" "$NC"
+    fi
     printf '\n'
 
     # RAM
     printf '%s[Memory (RAM)]%s\n' "$BOLD$YELLOW" "$NC"
     free -h 2>/dev/null || free -m
+    local total_mem_kb
+    total_mem_kb="$(grep -i MemTotal /proc/meminfo 2>/dev/null | awk '{print $2}' || echo "")"
+    if [[ "$total_mem_kb" =~ ^[0-9]+$ ]] && (( total_mem_kb < 4194304 )); then
+        printf '  %s[INFO] Low RAM (<4GB). Suggested in gradle.properties: org.gradle.jvmargs=-Xmx1024m%s\n' "$CYAN" "$NC"
+    fi
     printf '\n'
 
     # Phantom Process Killer
