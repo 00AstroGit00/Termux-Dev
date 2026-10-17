@@ -4,7 +4,7 @@
 # Termux Developer & AI Suite - One-Line Installer & TUI Launcher
 # ==============================================================================
 # Usage (One-Liner):
-#   bash -c "$(curl -fsSL https://raw.githubusercontent.com/00AstroGit00/Termux-Dev/main/install.sh)"
+#   pkg update -y && pkg install -y curl && bash -c "$(curl -fsSL https://raw.githubusercontent.com/00AstroGit00/Termux-Dev/main/install.sh)"
 #
 # Or locally:
 #   chmod +x install.sh && ./install.sh

@@ -9,7 +9,7 @@
 [![Node.js](https://img.shields.io/badge/Node.js-24%20LTS-339933.svg)](https://nodejs.org)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 
-An enterprise-grade, modular, and self-healing developer workstation provisioning suite and AI coding assistant hub designed exclusively for **Termux on Android ARM64 (`aarch64`)**.
+Turn your Android device into a powerhouse software engineering workstation. **Termux-Dev** automates the complete setup of a full developer environment on Android ARM64 (`aarch64`)—bringing native Android SDK/NDK compilers, OpenJDK 21, Node.js 24 LTS, the 5 leading terminal AI coding assistants, and sub-second zero-Gradle APK builds directly to Termux.
 
 ---
 
@@ -113,13 +113,16 @@ Stock Termux is lightweight, but turning it into a complete, professional softwa
 
 ### 1. Remote One-Liner Bootstrap
 
-To provision or install the suite on any fresh Termux installation with a single command:
+To set up the entire development workstation on any fresh or existing Termux installation with a single command:
 
 ```bash
-bash -c "$(curl -fsSL https://raw.githubusercontent.com/00AstroGit00/Termux-Dev/main/install.sh)"
+pkg update -y && pkg install -y curl && bash -c "$(curl -fsSL https://raw.githubusercontent.com/00AstroGit00/Termux-Dev/main/install.sh)"
 ```
 
-The installer verifies prerequisites, sets up the workspace, generates the global `termux-suite` and `tsuite` CLI commands, and immediately opens the interactive TUI.
+> [!TIP]
+> **Why `pkg update && pkg install -y curl`?** Stock Termux installs do not include `curl` by default. Prepending this ensures the one-liner executes cleanly out of the box on 100% of fresh setups without halting on missing package errors.
+
+The installer automatically verifies prerequisites, initializes your workspace, installs global `termux-suite` and `tsuite` CLI commands, and launches the interactive menu.
 
 ---
 
