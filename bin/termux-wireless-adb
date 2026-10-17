@@ -1,0 +1,228 @@
+#!/data/data/com.termux/files/usr/bin/bash
+#
+# Android 11+ Wireless ADB Pairing & Connection Helper for Termux
+# Streamlines local on-device pairing and connection without a PC or USB cable.
+#
+
+set -Eeuo pipefail
+
+# Ensure environment
+[[ -f "$HOME/.android-env" ]] && source "$HOME/.android-env"
+export PATH="$HOME/.local/bin:$HOME/.npm-global/bin:$HOME/bin:$PREFIX/bin:$PATH"
+
+SESSION_FILE="$HOME/.termux-adb-session"
+
+RED=$'\033[0;31m'
+GREEN=$'\033[0;32m'
+YELLOW=$'\033[1;33m'
+BLUE=$'\033[0;34m'
+CYAN=$'\033[0;36m'
+BOLD=$'\033[1m'
+NC=$'\033[0m'
+
+info()    { printf '%s[INFO]%s %s\n' "$BLUE" "$NC" "$*"; }
+success() { printf '%s[SUCCESS]%s %s\n' "$GREEN" "$NC" "$*"; }
+warn()    { printf '%s[WARNING]%s %s\n' "$YELLOW" "$NC" "$*" >&2; }
+error()   { printf '%s[ERROR]%s %s\n' "$RED" "$NC" "$*" >&2; }
+
+check_adb() {
+    if ! command -v adb >/dev/null 2>&1; then
+        error "Android Debug Bridge (adb) is not installed."
+        printf 'Install via: pkg install android-tools\n' >&2
+        exit 1
+    fi
+}
+
+show_guide() {
+    printf '%s=== Android 11+ Wireless Debugging Setup Guide ===%s\n\n' "$BOLD$CYAN" "$NC"
+    printf '1. Open Android %sSettings -> Developer Options%s.\n' "$BOLD" "$NC"
+    printf '2. Enable %sWireless Debugging%s.\n' "$BOLD" "$NC"
+    printf '3. Tap the %sWireless Debugging%s text (open the sub-menu).\n' "$BOLD" "$NC"
+    printf '4. Tap %s"Pair device with pairing code"%s.\n' "$BOLD$YELLOW" "$NC"
+    printf '   Note down the %sPairing Port%s and the %s6-digit Pairing Code%s.\n' "$BOLD$GREEN" "$NC" "$BOLD$GREEN" "$NC"
+    printf '5. Run: %stermux-wireless-adb pair <port> <code>%s\n' "$BOLD$CYAN" "$NC"
+    printf '6. Close the pairing dialog. Note down the main %sConnection Port%s.\n' "$BOLD$GREEN" "$NC"
+    printf '7. Run: %stermux-wireless-adb connect <port>%s\n\n' "$BOLD$CYAN" "$NC"
+}
+
+cmd_pair() {
+    check_adb
+    local port="${1:-}"
+    local code="${2:-}"
+
+    if [[ -z "$port" ]]; then
+        printf '%s[Step 1: Pairing]%s Open Settings -> Developer Options -> Wireless Debugging -> "Pair device with pairing code"\n' "$BOLD$YELLOW" "$NC"
+        printf '%sEnter Pairing Port (e.g. 42351): %s' "$BOLD$CYAN" "$NC"
+        read -rp "" port
+    fi
+
+    if [[ -z "$code" ]]; then
+        printf '%sEnter 6-digit Pairing Code (e.g. 123456): %s' "$BOLD$CYAN" "$NC"
+        read -rp "" code
+    fi
+
+    port="$(echo "$port" | tr -d '[:space:]')"
+    code="$(echo "$code" | tr -d '[:space:]')"
+
+    if [[ -z "$port" || -z "$code" ]]; then
+        error "Both pairing port and pairing code are required."
+        return 1
+    fi
+
+    info "Attempting to pair with 127.0.0.1:$port..."
+    if adb pair "127.0.0.1:$port" "$code"; then
+        success "Successfully paired with 127.0.0.1:$port!"
+        printf '\n%sNext:%s Return to the main Wireless Debugging screen, find the %sConnection Port%s and run:\n' "$BOLD$GREEN" "$NC" "$BOLD$YELLOW" "$NC"
+        printf '  %stermux-wireless-adb connect <connection_port>%s\n\n' "$BOLD$CYAN" "$NC"
+    else
+        error "Pairing failed. Check if port and 6-digit code are still valid."
+        return 1
+    fi
+}
+
+cmd_connect() {
+    check_adb
+    local port="${1:-}"
+
+    if [[ -z "$port" ]]; then
+        local last_port=""
+        [[ -f "$SESSION_FILE" ]] && last_port="$(cat "$SESSION_FILE" 2>/dev/null || true)"
+        if [[ -n "$last_port" ]]; then
+            printf '%sEnter Connection Port [default: %s]: %s' "$BOLD$CYAN" "$last_port" "$NC"
+            read -rp "" port
+            port="${port:-$last_port}"
+        else
+            printf '%sEnter Connection Port from Wireless Debugging screen: %s' "$BOLD$CYAN" "$NC"
+            read -rp "" port
+        fi
+    fi
+
+    port="$(echo "$port" | tr -d '[:space:]')"
+    if [[ -z "$port" ]]; then
+        error "Connection port is required."
+        return 1
+    fi
+
+    info "Connecting to 127.0.0.1:$port..."
+    if adb connect "127.0.0.1:$port"; then
+        echo "$port" > "$SESSION_FILE"
+        chmod 600 "$SESSION_FILE" 2>/dev/null || true
+        success "Connected to ADB on 127.0.0.1:$port!"
+        info "Saved session port for quick reconnection."
+        cmd_status
+    else
+        error "Failed to connect to 127.0.0.1:$port."
+        return 1
+    fi
+}
+
+cmd_reconnect() {
+    check_adb
+    if [[ ! -f "$SESSION_FILE" ]]; then
+        error "No active session port saved. Run 'termux-wireless-adb connect <port>' first."
+        return 1
+    fi
+
+    local port
+    port="$(cat "$SESSION_FILE" 2>/dev/null || true)"
+    port="$(echo "$port" | tr -d '[:space:]')"
+
+    if [[ -z "$port" ]]; then
+        error "Session file is empty. Run 'termux-wireless-adb connect <port>' first."
+        return 1
+    fi
+
+    info "Reconnecting to cached port 127.0.0.1:$port..."
+    cmd_connect "$port"
+}
+
+cmd_disconnect() {
+    check_adb
+    local port="${1:-}"
+    if [[ -n "$port" ]]; then
+        adb disconnect "127.0.0.1:$port" || true
+    else
+        adb disconnect || true
+    fi
+    success "Disconnected ADB sessions."
+}
+
+cmd_status() {
+    check_adb
+    printf '\n%s=== ADB Connection Status ===%s\n' "$BOLD$CYAN" "$NC"
+    adb devices -l
+    if [[ -f "$SESSION_FILE" ]]; then
+        printf '\nCached session port: %s127.0.0.1:%s%s\n' "$BOLD$GREEN" "$(cat "$SESSION_FILE")" "$NC"
+    fi
+    printf '\n'
+}
+
+show_help() {
+    printf 'Usage: %s <COMMAND> [OPTIONS]\n\n' "$(basename "$0")"
+    printf 'Android 11+ Wireless ADB Pairing & Connection Helper\n\n'
+    printf 'Commands:\n'
+    printf '  pair [port] [code]    Pair device with 6-digit code (Step 1)\n'
+    printf '  connect [port]        Connect to wireless debugging port (Step 2)\n'
+    printf '  reconnect             Reconnect to the last saved session port\n'
+    printf '  disconnect [port]     Disconnect active wireless ADB sessions\n'
+    printf '  status                Check ADB server and attached devices\n'
+    printf '  guide                 Show step-by-step Android settings guide\n'
+    printf '  help, -h, --help      Show this help message\n'
+    exit 0
+}
+
+if [[ $# -eq 0 ]]; then
+    printf '%sTermux Wireless ADB Helper%s\n' "$BOLD$CYAN" "$NC"
+    printf '1) %sPair device%s (enter pairing port & 6-digit code)\n' "$BOLD$YELLOW" "$NC"
+    printf '2) %sConnect%s (enter connection port)\n' "$BOLD$GREEN" "$NC"
+    printf '3) %sReconnect%s to last saved session\n' "$BOLD$BLUE" "$NC"
+    printf '4) %sCheck status%s & connected devices\n' "$BOLD$CYAN" "$NC"
+    printf '5) %sDisconnect%s\n' "$BOLD$RED" "$NC"
+    printf '6) %sShow setup guide%s\n' "$BOLD" "$NC"
+    printf '0) Exit\n\n'
+    printf '%sSelect an option [1-6, or 0 to exit]: %s' "$BOLD$CYAN" "$NC"
+    read -rp "" menu_choice
+    case "$menu_choice" in
+        1) cmd_pair ;;
+        2) cmd_connect ;;
+        3) cmd_reconnect ;;
+        4) cmd_status ;;
+        5) cmd_disconnect ;;
+        6) show_guide ;;
+        0|q|exit) exit 0 ;;
+        *) error "Invalid selection: $menu_choice"; exit 1 ;;
+    esac
+    exit 0
+fi
+
+case "$1" in
+    pair)
+        shift
+        cmd_pair "${1:-}" "${2:-}"
+        ;;
+    connect)
+        shift
+        cmd_connect "${1:-}"
+        ;;
+    reconnect)
+        cmd_reconnect
+        ;;
+    disconnect)
+        shift
+        cmd_disconnect "${1:-}"
+        ;;
+    status)
+        cmd_status
+        ;;
+    guide)
+        show_guide
+        ;;
+    help|-h|--help)
+        show_help
+        ;;
+    *)
+        error "Unknown command: $1"
+        printf 'Run "%s help" for available commands.\n' "$(basename "$0")"
+        exit 1
+        ;;
+esac

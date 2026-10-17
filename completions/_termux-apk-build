@@ -11,6 +11,8 @@ _termux_apk_build() {
         '(-o --output)'{-o,--output}'[Path for output signed APK]:output file:_files -g "*.apk"' \
         '(-i --install)'{-i,--install}'[Automatically install APK via ADB after compilation]' \
         '(-u --share)'{-u,--share}'[Share or install APK via Android package installer]' \
+        '--no-cache[Disable incremental AAPT2 resource caching]' \
+        '--clean-cache[Purge existing incremental build cache before building]' \
         '--min-sdk[Minimum SDK version]:version number:' \
         '--target-sdk[Target SDK version]:version number:' \
         '(-k --keystore)'{-k,--keystore}'[Path to signing keystore]:keystore file:_files' \

@@ -5,7 +5,7 @@ _tsuite_completions() {
     COMPREPLY=()
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
-    opts="--all --base --essentials --node --ai --ai-env --android --apk --build-apk --verify --doctor --health --test --smoke-test --prune-ndk --tune-device --tune-keys --install-hooks --clean --help -h"
+    opts="--all --wizard --base --essentials --node --ai --ai-env --android --apk --build-apk --adb --adb-pair --adb-connect --backup --restore --verify --doctor --health --test --smoke-test --prune-ndk --tune-device --tune-keys --install-hooks --clean --help -h"
 
     if [[ "$cur" == -* ]]; then
         mapfile -t COMPREPLY < <(compgen -W "$opts" -- "$cur")
@@ -18,7 +18,7 @@ _apk_build_completions() {
     COMPREPLY=()
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
-    opts="-p --project -m --manifest -s --src -r --res -l --lib -j --jars -o --output -i --install -u --share --min-sdk --target-sdk -k --keystore --alias --pass -h --help"
+    opts="-p --project -m --manifest -s --src -r --res -l --lib -j --jars -o --output -i --install -u --share --no-cache --clean-cache --min-sdk --target-sdk -k --keystore --alias --pass -h --help"
 
     case "$prev" in
         -p|--project|-s|--src|-r|--res|-l|--lib)

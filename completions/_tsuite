@@ -3,23 +3,27 @@
 _tsuite() {
     local -a options
     options=(
-        '--all[Execute all setup stages (01 -> 06)]'
-        '--base[Execute Stage 01: Base & Repositories]'
-        '--essentials[Execute Stage 02: Compilers & Dev Essentials]'
-        '--node[Execute Stage 03: Node.js 24 LTS & Package Managers]'
-        '--ai[Execute Stage 04: AI Assistant Suite (5 CLIs)]'
-        '--ai-env[Execute Stage 05: Private AI Credentials Setup]'
-        '--android[Execute Stage 06: Android SDK, NDK & OpenJDK 21]'
-        '--apk[Build Android APK interactively with zero Gradle]'
-        '--verify[Verify all installed compilers and tools]'
-        '--doctor[Run Termux system health & environment diagnostics]'
-        '--test[Run ruthless 30-point stress & verification suite]'
-        '--prune-ndk[Prune unused NDK sysroots (saves ~600MB)]'
-        '--tune-device[Disable Phantom Process Killer (Android 14+)]'
-        '--tune-keys[Configure enhanced developer extra-keys bar]'
-        '--install-hooks[Install local Git pre-commit verification hook]'
-        '--clean[Remove locks, temp files, and apt package archives]'
-        '--help[Display command help]'
+        '--all[Execute all setup stages (01 -> 06)]' \
+        '--wizard[Launch custom multi-stage selection wizard]' \
+        '--base[Execute Stage 01: Base & Repositories]' \
+        '--essentials[Execute Stage 02: Compilers & Dev Essentials]' \
+        '--node[Execute Stage 03: Node.js 24 LTS & Package Managers]' \
+        '--ai[Execute Stage 04: AI Assistant Suite (5 CLIs)]' \
+        '--ai-env[Execute Stage 05: Private AI Credentials Setup]' \
+        '--android[Execute Stage 06: Android SDK, NDK & OpenJDK 21]' \
+        '--apk[Build Android APK interactively with zero Gradle]' \
+        '--adb[Android 11+ wireless ADB pairing & connect helper]' \
+        '--backup[Export encrypted developer vault (AES-256-CBC)]' \
+        '--restore[Restore developer vault from encrypted archive]' \
+        '--verify[Verify all installed compilers and tools]' \
+        '--doctor[Run Termux system health & environment diagnostics]' \
+        '--test[Run ruthless 30-point stress & verification suite]' \
+        '--prune-ndk[Prune unused NDK sysroots (saves ~600MB)]' \
+        '--tune-device[Disable Phantom Process Killer (Android 14+)]' \
+        '--tune-keys[Configure enhanced developer extra-keys bar]' \
+        '--install-hooks[Install local Git pre-commit verification hook]' \
+        '--clean[Remove locks, temp files, and apt package archives]' \
+        '--help[Display command help]' \
         '-h[Display command help]'
     )
     _describe -t options 'termux-suite options' options

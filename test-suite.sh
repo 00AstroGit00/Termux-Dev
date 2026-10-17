@@ -342,8 +342,9 @@ else
 fi
 
 test_start "Standalone zero-Gradle APK builder (termux-apk-build)"
-if command -v termux-apk-build >/dev/null 2>&1 || [[ -x "$SETUP_DIR/bin/termux-apk-build" ]]; then
-    APK_BUILD_CMD="$(command -v termux-apk-build 2>/dev/null || echo "$SETUP_DIR/bin/termux-apk-build")"
+if [[ -x "$SETUP_DIR/bin/termux-apk-build" ]] || command -v termux-apk-build >/dev/null 2>&1; then
+    APK_BUILD_CMD="[[ -x \"$SETUP_DIR/bin/termux-apk-build\" ]] && echo \"$SETUP_DIR/bin/termux-apk-build\" || command -v termux-apk-build"
+    APK_BUILD_CMD="$(eval "$APK_BUILD_CMD")"
     mkdir -p "$TMP_TEST_DIR/cli_app/src/com/pkg"
     cat > "$TMP_TEST_DIR/cli_app/AndroidManifest.xml" <<'EOF'
 <?xml version="1.0" encoding="utf-8"?>
@@ -379,8 +380,9 @@ else
 fi
 
 test_start "Android Studio project auto-detection build (termux-apk-build -p)"
-if command -v termux-apk-build >/dev/null 2>&1 || [[ -x "$SETUP_DIR/bin/termux-apk-build" ]]; then
-    APK_BUILD_CMD="$(command -v termux-apk-build 2>/dev/null || echo "$SETUP_DIR/bin/termux-apk-build")"
+if [[ -x "$SETUP_DIR/bin/termux-apk-build" ]] || command -v termux-apk-build >/dev/null 2>&1; then
+    APK_BUILD_CMD="[[ -x \"$SETUP_DIR/bin/termux-apk-build\" ]] && echo \"$SETUP_DIR/bin/termux-apk-build\" || command -v termux-apk-build"
+    APK_BUILD_CMD="$(eval "$APK_BUILD_CMD")"
     mkdir -p "$TMP_TEST_DIR/studio_proj/app/src/main/java/com/studio"
     cat > "$TMP_TEST_DIR/studio_proj/app/src/main/AndroidManifest.xml" <<'EOF'
 <?xml version="1.0" encoding="utf-8"?>
@@ -467,8 +469,9 @@ else
 fi
 
 test_start "APK builder with external JAR dependency synthesis (termux-apk-build -j)"
-if command -v termux-apk-build >/dev/null 2>&1 || [[ -x "$SETUP_DIR/bin/termux-apk-build" ]]; then
-    APK_BUILD_CMD="$(command -v termux-apk-build 2>/dev/null || echo "$SETUP_DIR/bin/termux-apk-build")"
+if [[ -x "$SETUP_DIR/bin/termux-apk-build" ]] || command -v termux-apk-build >/dev/null 2>&1; then
+    APK_BUILD_CMD="[[ -x \"$SETUP_DIR/bin/termux-apk-build\" ]] && echo \"$SETUP_DIR/bin/termux-apk-build\" || command -v termux-apk-build"
+    APK_BUILD_CMD="$(eval "$APK_BUILD_CMD")"
     mkdir -p "$TMP_TEST_DIR/jar_proj/src/com/jarapp" "$TMP_TEST_DIR/jar_proj/libs" "$TMP_TEST_DIR/lib_src/com/helper" "$TMP_TEST_DIR/lib_classes"
     cat > "$TMP_TEST_DIR/lib_src/com/helper/MathUtil.java" <<'EOF'
 package com.helper;
@@ -506,6 +509,64 @@ EOF
     fi
 else
     test_fail "termux-apk-build executable not found"
+fi
+
+test_start "Android 11+ wireless ADB helper (termux-wireless-adb)"
+if [[ -x "$SETUP_DIR/bin/termux-wireless-adb" ]]; then
+    if "$SETUP_DIR/bin/termux-wireless-adb" help >/dev/null 2>&1; then
+        test_pass "termux-wireless-adb CLI operational"
+    else
+        test_fail "termux-wireless-adb failed to return help"
+    fi
+else
+    test_fail "termux-wireless-adb executable not found"
+fi
+
+test_start "AAPT2 incremental build cache verification (termux-apk-build)"
+if [[ -x "$SETUP_DIR/bin/termux-apk-build" ]] || command -v termux-apk-build >/dev/null 2>&1; then
+    APK_BUILD_CMD="[[ -x \"$SETUP_DIR/bin/termux-apk-build\" ]] && echo \"$SETUP_DIR/bin/termux-apk-build\" || command -v termux-apk-build"
+    APK_BUILD_CMD="$(eval "$APK_BUILD_CMD")"
+    mkdir -p "$TMP_TEST_DIR/cache_proj/res/values" "$TMP_TEST_DIR/cache_proj/src/com/example"
+    cat > "$TMP_TEST_DIR/cache_proj/AndroidManifest.xml" <<'EOF'
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.example.cache">
+    <application android:label="CacheTest" />
+</manifest>
+EOF
+    cat > "$TMP_TEST_DIR/cache_proj/res/values/strings.xml" <<'EOF'
+<resources><string name="app_name">CacheTest</string></resources>
+EOF
+    cat > "$TMP_TEST_DIR/cache_proj/src/com/example/Main.java" <<'EOF'
+package com.example;
+public class Main {}
+EOF
+    # First build creates cache
+    "$APK_BUILD_CMD" -p "$TMP_TEST_DIR/cache_proj" -o "$TMP_TEST_DIR/cache_proj/out1.apk" >/dev/null 2>&1 || true
+    # Second build reuses cache
+    run2_out="$("$APK_BUILD_CMD" -p "$TMP_TEST_DIR/cache_proj" -o "$TMP_TEST_DIR/cache_proj/out2.apk" 2>&1 || true)"
+    if [[ -f "$TMP_TEST_DIR/cache_proj/.apk-cache/compiled-res.zip" ]] && [[ "$run2_out" =~ "CACHE HIT" ]]; then
+        test_pass "AAPT2 incremental cache verified with CACHE HIT"
+    else
+        test_fail "AAPT2 incremental caching failed to trigger"
+    fi
+else
+    test_fail "termux-apk-build executable not found"
+fi
+
+test_start "Encrypted developer vault roundtrip (OpenSSL AES-256-CBC)"
+if command -v openssl >/dev/null 2>&1; then
+    mkdir -p "$TMP_TEST_DIR/vault_test/src" "$TMP_TEST_DIR/vault_test/dst"
+    echo "AI_SECRET_KEY=test_token_12345" > "$TMP_TEST_DIR/vault_test/src/.ai-env"
+    if (cd "$TMP_TEST_DIR/vault_test/src" && tar -cf - .ai-env) | \
+       openssl enc -aes-256-cbc -pbkdf2 -iter 100000 -pass pass:secretPass123 -salt -out "$TMP_TEST_DIR/vault_test/vault.enc" >/dev/null 2>&1 && \
+       openssl enc -d -aes-256-cbc -pbkdf2 -iter 100000 -pass pass:secretPass123 -in "$TMP_TEST_DIR/vault_test/vault.enc" | \
+       (cd "$TMP_TEST_DIR/vault_test/dst" && tar -xf -) >/dev/null 2>&1 && \
+       cmp -s "$TMP_TEST_DIR/vault_test/src/.ai-env" "$TMP_TEST_DIR/vault_test/dst/.ai-env"; then
+        test_pass "developer vault successfully encrypted and restored"
+    else
+        test_fail "developer vault encryption/decryption roundtrip failed"
+    fi
+else
+    test_warn "openssl not available"
 fi
 
 test_start "ShellCheck linting validation across all repository scripts"

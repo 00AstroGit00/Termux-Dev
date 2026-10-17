@@ -139,11 +139,12 @@ tsuite
 
 #### Modern TUI Interface Walkthrough:
 ```text
-  Termux-Dev ARM64 Workstation  │  RAM: 4.8Gi Avail  │  Disk: 18.2Gi Free
+  Termux-Dev ARM64 Workstation  │  RAM: 4.8Gi Avail  │  Disk: 18.2Gi Free  │  Bat: 85%  │  Git: main (0*)
  ┌────────────────────── Termux Developer Suite ─────────────────────────┐
  │ Select an action with Up/Down and press Enter:                        │
  │                                                                       │
  │  1   ▶  Run Complete Pipeline (Stages 01 -> 06)                       │
+ │  W   🧙 Custom Multi-Stage Selection Wizard                            │
  │  2   [✓] Stage 01: Base System, Repos & Zsh                           │
  │  3   [✓] Stage 02: Essentials & Dev Toolchains                        │
  │  4   [✓] Stage 03: Node.js 24 & Package Managers                      │
@@ -151,27 +152,32 @@ tsuite
  │  6   [✓] Stage 05: Private AI Environment (~/.ai-env)                 │
  │  7   [✓] Stage 06: Android SDK, NDK & OpenJDK 21                      │
  │  8   ⚡ Build Android APK (Sub-Second Engine)                          │
- │  9   ✓  Verify All Installed Tools & CLIs                             │
- │ 10   🧪 Run Ruthless 30-Point Stress Test Suite                       │
- │ 11   🩺 System Doctor: Health & Diagnostics                           │
- │ 12   ⌨️  Configure Developer Extra-Keys                                │
- │ 13   🔋 Disable Phantom Process Killer                                │
- │ 14   ✂️  Prune Unused NDK Sysroots (Save ~600MB)                       │
- │ 15   🧹 Deep Clean Cache, Temp Files & Locks                           │
- │ 16   🛡️  Install Local Git Pre-Commit Hook                             │
+ │  9   📶 Wireless ADB Pairing & Connect (Android 11+)                  │
+ │ 10   ✓  Verify All Installed Tools & CLIs                             │
+ │ 11   🧪 Run Ruthless 33-Point Stress Test Suite                       │
+ │ 12   🩺 System Doctor: Health & Diagnostics                           │
+ │ 13   ⌨️  Configure Developer Extra-Keys                                │
+ │ 14   🔋 Disable Phantom Process Killer                                │
+ │ 15   ✂️  Prune Unused NDK Sysroots (Save ~600MB)                       │
+ │ 16   🔒 Encrypted Developer Vault (Backup / Restore)                  │
+ │ 17   🧹 Deep Clean Cache, Temp Files & Locks                           │
+ │ 18   🛡️  Install Local Git Pre-Commit Hook                             │
  │  0   🚪 Exit to Shell                                                 │
  ├───────────────────────────────────────────────────────────────────────┤
- │                         <  OK  >      < Cancel >                      │
+ │        < Select >      < Doctor >      < Help >      < Exit >         │
  └───────────────────────────────────────────────────────────────────────┘
 ```
 
 #### Responsive ANSI Card Fallback:
-When running in environments where ncurses is unavailable or over serial/SSH, the suite falls back cleanly to a grouped ANSI card interface with **mnemonic double-trigger hotkeys**:
+When running in environments where ncurses is unavailable or over serial/SSH, the suite falls back cleanly to a grouped ANSI card interface with **instant single-key touch response** and mnemonic triggers:
 - `1` or `A` — Run Complete Pipeline
+- `W` — Custom Multi-Stage Selection Wizard (interactive checklist)
 - `2` or `B` — Stage 01: Base System & Zsh
-- `8` or `K` — Build Android APK
-- `10` or `T` — Run 30-Point Stress Test Suite
-- `11` or `H` — System Doctor & Diagnostics
+- `8` or `K` — Build Android APK (Sub-second with AAPT2 incremental cache)
+- `9` or `Y` — Android 11+ Wireless ADB Pairing & Connect
+- `11` or `T` — Run 33-Point Stress Test Suite
+- `12` or `H` — System Doctor & Diagnostics
+- `16` or `L` — Encrypted Developer Vault (AES-256-CBC backup/restore)
 - `0` or `Q` — Exit to Shell
 
 ---
@@ -182,10 +188,10 @@ Fast, context-aware command tab-completions are provided and automatically insta
 
 ```bash
 tsuite --<TAB>
-# Completes: --all, --apk, --verify, --doctor, --test, --clean, --prune-ndk, etc.
+# Completes: --all, --wizard, --apk, --adb, --backup, --restore, --verify, --doctor, --test, --clean, etc.
 
 termux-apk-build -<TAB>
-# Completes: -p (--project), -m (--manifest), -s (--src), -r (--res), -j (--jars), -o (--output)
+# Completes: -p (--project), -m (--manifest), -s (--src), -r (--res), -j (--jars), -o (--output), --no-cache, --clean-cache
 ```
 
 ---
@@ -196,6 +202,7 @@ You can also run specific tasks directly without the TUI:
 
 ```bash
 ./setup.sh --all            # Execute all stages (01 -> 06) sequentially
+./setup.sh --wizard         # Launch custom multi-stage selection wizard
 ./setup.sh --base           # Stage 01: Base system, repos & Zsh
 ./setup.sh --essentials     # Stage 02: Compilers, tools & dev utilities
 ./setup.sh --node           # Stage 03: Node.js 24 LTS & package managers
@@ -203,9 +210,12 @@ You can also run specific tasks directly without the TUI:
 ./setup.sh --ai-env         # Stage 05: Setup private ~/.ai-env template
 ./setup.sh --android        # Stage 06: Android SDK, NDK & TermuxVoid setup
 ./setup.sh --apk            # Interactive standalone APK builder (zero Gradle)
+./setup.sh --adb            # Android 11+ wireless ADB pairing & connect helper
+./setup.sh --backup [file]  # Export encrypted developer vault (AES-256-CBC)
+./setup.sh --restore [file] # Restore developer vault from encrypted archive
 ./setup.sh --verify         # Inspect status of all installed tools
 ./setup.sh --doctor         # Run Termux system health & environment diagnostics
-./setup.sh --test           # Run ruthless 30-point stress & verification suite
+./setup.sh --test           # Run ruthless 33-point stress & verification suite
 ./setup.sh --prune-ndk      # Prune unused NDK sysroots (reclaims ~600MB)
 ./setup.sh --tune-device    # Disable Phantom Process Killer (root or ADB guidance)
 ./setup.sh --tune-keys      # Configure enhanced dual-row developer extra-keys layout
@@ -418,10 +428,13 @@ termux-suite --test
 ▶ [TEST] Android NDK target wrapper (aarch64-linux-android34-clang) ... PASS
 ▶ [TEST] Google Android CLI (android) operational execution ... PASS (1.0.16625370)
 ▶ [TEST] APK builder with external JAR dependency synthesis (termux-apk-build -j) ... PASS
+▶ [TEST] Android 11+ wireless ADB helper (termux-wireless-adb) ... PASS
+▶ [TEST] AAPT2 incremental build cache verification (termux-apk-build) ... PASS
+▶ [TEST] Encrypted developer vault roundtrip (OpenSSL AES-256-CBC) ... PASS
 ▶ [TEST] ShellCheck linting validation across all repository scripts ... PASS
 
 === Test Suite Results ===
-  Passed:   30
+  Passed:   33
   Warnings: 0
   Failed:   0
 

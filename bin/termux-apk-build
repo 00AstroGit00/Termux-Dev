@@ -49,6 +49,8 @@ MIN_SDK=""
 TARGET_SDK=""
 DO_INSTALL=0
 DO_SHARE=0
+USE_CACHE=1
+CLEAN_CACHE=0
 BUILD_DIR="${TMPDIR:-/data/data/com.termux/files/usr/tmp}/apk-build-$$"
 
 show_help() {
@@ -63,6 +65,8 @@ show_help() {
     printf '  -o, --output <file>    Path for output signed APK (default: app-signed.apk)\n'
     printf '  -i, --install          Automatically install APK via adb upon successful build\n'
     printf '  -u, --share            Share/install APK via Android package installer\n'
+    printf '      --no-cache         Disable incremental AAPT2 resource caching\n'
+    printf '      --clean-cache      Purge existing incremental build cache before building\n'
     printf '      --min-sdk <num>    Set minimum SDK version (passed to aapt2 link)\n'
     printf '      --target-sdk <num> Set target SDK version (passed to aapt2 link)\n'
     printf '  -k, --keystore <file>  Path to signing keystore (default: auto-generated debug)\n'
@@ -83,6 +87,8 @@ while [[ $# -gt 0 ]]; do
         -o|--output)     OUTPUT_APK="$2"; shift 2 ;;
         -i|--install)    DO_INSTALL=1; shift ;;
         -u|--share)      DO_SHARE=1; shift ;;
+        --no-cache)      USE_CACHE=0; shift ;;
+        --clean-cache)   CLEAN_CACHE=1; shift ;;
         --min-sdk)       MIN_SDK="$2"; shift 2 ;;
         --target-sdk)    TARGET_SDK="$2"; shift 2 ;;
         -k|--keystore)   KEYSTORE="$2"; shift 2 ;;
@@ -107,24 +113,64 @@ if [[ -n "$PROJECT_DIR" && -d "$PROJECT_DIR" ]]; then
         [[ -d "$PROJECT_DIR/src/main/res" ]] && RES_DIR="$PROJECT_DIR/src/main/res"
         [[ -d "$PROJECT_DIR/src/main/jniLibs" ]] && LIB_DIR="$PROJECT_DIR/src/main/jniLibs"
         [[ -d "$PROJECT_DIR/libs" && -z "$JAR_DIR" ]] && JAR_DIR="$PROJECT_DIR/libs"
+    elif [[ -f "$PROJECT_DIR/AndroidManifest.xml" ]]; then
+        MANIFEST="$PROJECT_DIR/AndroidManifest.xml"
+        [[ -d "$PROJECT_DIR/src" ]] && SRC_DIR="$PROJECT_DIR/src"
+        [[ -d "$PROJECT_DIR/res" ]] && RES_DIR="$PROJECT_DIR/res"
+        [[ -d "$PROJECT_DIR/jniLibs" ]] && LIB_DIR="$PROJECT_DIR/jniLibs"
+        [[ -d "$PROJECT_DIR/libs" && -z "$JAR_DIR" ]] && JAR_DIR="$PROJECT_DIR/libs"
     fi
 fi
 
 [[ -f "$MANIFEST" ]] || { printf '\033[0;31m[ERROR]\033[0m Manifest not found: %s\n' "$MANIFEST" >&2; exit 1; }
 [[ -d "$SRC_DIR" ]] || { printf '\033[0;31m[ERROR]\033[0m Source directory not found: %s\n' "$SRC_DIR" >&2; exit 1; }
 
+if [[ -n "$PROJECT_DIR" && -d "$PROJECT_DIR" ]]; then
+    CACHE_DIR="$PROJECT_DIR/.apk-cache"
+elif [[ -d "$(dirname "$MANIFEST")" ]]; then
+    CACHE_DIR="$(cd "$(dirname "$MANIFEST")" && pwd)/.apk-cache"
+else
+    CACHE_DIR="${HOME}/.cache/termux-apk-build"
+fi
+
+if [[ "$CLEAN_CACHE" == "1" && -d "$CACHE_DIR" ]]; then
+    printf '\033[0;34m[INFO]\033[0m Purging incremental build cache at %s...\n' "$CACHE_DIR"
+    rm -rf "$CACHE_DIR"
+fi
+
 mkdir -p "$BUILD_DIR/classes" "$BUILD_DIR/gen"
 trap 'rm -rf "$BUILD_DIR"' EXIT INT TERM
 
 printf '\033[0;34m[INFO]\033[0m Compiling resources with AAPT2...\n'
-AAPT_ARGS=("-I" "$PLATFORM_JAR" "--manifest" "$MANIFEST" "--java" "$BUILD_DIR/gen" "-o" "$BUILD_DIR/app-unaligned.apk")
+AAPT_ARGS=("-I" "$PLATFORM_JAR" "--manifest" "$MANIFEST" "--java" "$BUILD_DIR/gen" "--auto-add-overlay" "-o" "$BUILD_DIR/app-unaligned.apk")
 
 [[ -n "$MIN_SDK" ]] && AAPT_ARGS+=("--min-sdk-version" "$MIN_SDK")
 [[ -n "$TARGET_SDK" ]] && AAPT_ARGS+=("--target-sdk-version" "$TARGET_SDK")
 
 if [[ -n "$RES_DIR" && -d "$RES_DIR" ]]; then
     mkdir -p "$BUILD_DIR/compiled-res"
-    aapt2 compile --dir "$RES_DIR" -o "$BUILD_DIR/compiled-res.zip"
+    cache_hit=0
+    res_cache_zip="$CACHE_DIR/compiled-res.zip"
+    res_cache_hash="$CACHE_DIR/res_hash.txt"
+
+    if [[ "$USE_CACHE" == "1" && -f "$res_cache_zip" && -f "$res_cache_hash" ]]; then
+        current_res_hash="$(find "$RES_DIR" -type f -printf '%P %s %T@\n' 2>/dev/null | sort | md5sum | cut -d' ' -f1 || true)"
+        cached_hash="$(cat "$res_cache_hash" 2>/dev/null || true)"
+        if [[ -n "$current_res_hash" && "$current_res_hash" == "$cached_hash" ]]; then
+            cp -f "$res_cache_zip" "$BUILD_DIR/compiled-res.zip"
+            cache_hit=1
+            printf '\033[0;32m[CACHE HIT]\033[0m Reusing cached AAPT2 compiled resources (incremental speedup)...\n'
+        fi
+    fi
+
+    if [[ "$cache_hit" == "0" ]]; then
+        aapt2 compile --dir "$RES_DIR" -o "$BUILD_DIR/compiled-res.zip"
+        if [[ "$USE_CACHE" == "1" ]]; then
+            mkdir -p "$CACHE_DIR" 2>/dev/null || true
+            cp -f "$BUILD_DIR/compiled-res.zip" "$res_cache_zip" 2>/dev/null || true
+            find "$RES_DIR" -type f -printf '%P %s %T@\n' 2>/dev/null | sort | md5sum | cut -d' ' -f1 > "$res_cache_hash" 2>/dev/null || true
+        fi
+    fi
     AAPT_ARGS+=("-R" "$BUILD_DIR/compiled-res.zip")
 fi
 

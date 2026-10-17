@@ -413,6 +413,269 @@ get_stage_status() {
     esac
 }
 
+launch_wireless_adb() {
+    local adb_helper="$SETUP_DIR/bin/termux-wireless-adb"
+    if [[ ! -x "$adb_helper" ]]; then
+        if command -v termux-wireless-adb >/dev/null 2>&1; then
+            adb_helper="$(command -v termux-wireless-adb)"
+        else
+            error "termux-wireless-adb executable not found."
+            return 1
+        fi
+    fi
+    bash "$adb_helper" "$@"
+}
+
+backup_vault() {
+    local target_file="${1:-}"
+    if ! command -v openssl >/dev/null 2>&1; then
+        error "openssl is required for encrypted backups. Install via: pkg install openssl"
+        return 1
+    fi
+
+    if [[ -z "$target_file" ]]; then
+        local dest_dir="$HOME"
+        if [[ -d "$HOME/storage/shared" ]]; then
+            dest_dir="$HOME/storage/shared"
+        fi
+        target_file="$dest_dir/TermuxDev-Vault-$(date +%Y%m%d_%H%M%S).enc"
+    fi
+
+    info "Preparing encrypted backup of Termux developer environment..."
+    local files_to_backup=()
+    [[ -f "$HOME/.ai-env" ]] && files_to_backup+=(".ai-env")
+    [[ -d "$HOME/.ssh" ]] && files_to_backup+=(".ssh")
+    [[ -f "$HOME/.gitconfig" ]] && files_to_backup+=(".gitconfig")
+    [[ -f "$HOME/.android-env" ]] && files_to_backup+=(".android-env")
+    [[ -d "$HOME/.termux" ]] && files_to_backup+=(".termux")
+
+    if [[ ${#files_to_backup[@]} -eq 0 ]]; then
+        warn "No credentials or configuration files found to back up."
+        return 0
+    fi
+
+    printf 'Files included in backup archive:\n'
+    local f
+    for f in "${files_to_backup[@]}"; do
+        printf '  • ~/%s\n' "$f"
+    done
+    printf '\n'
+
+    printf '%sEnter encryption passphrase for vault:%s\n' "$BOLD$YELLOW" "$NC"
+    mkdir -p "$(dirname "$target_file")"
+    if (cd "$HOME" && tar -cf - "${files_to_backup[@]}") | openssl enc -aes-256-cbc -pbkdf2 -iter 100000 -salt -out "$target_file"; then
+        chmod 600 "$target_file" 2>/dev/null || true
+        success "Encrypted backup successfully created at: $target_file"
+        info "Archive is encrypted with AES-256-CBC (PBKDF2 100,000 iterations)."
+        if command -v termux-notification >/dev/null 2>&1; then
+            termux-notification --id "vault-backup" --title "Backup Vault Created" --content "Saved: $(basename "$target_file")" --priority high 2>/dev/null || true
+        fi
+    else
+        error "Backup encryption failed."
+        rm -f "$target_file" 2>/dev/null || true
+        return 1
+    fi
+}
+
+restore_vault() {
+    local target_file="${1:-}"
+    if ! command -v openssl >/dev/null 2>&1; then
+        error "openssl is required to restore encrypted backups."
+        return 1
+    fi
+
+    if [[ -z "$target_file" ]]; then
+        local default_search=()
+        if [[ -d "$HOME/storage/shared" ]]; then
+            mapfile -t default_search < <(find "$HOME/storage/shared" -maxdepth 1 -name "TermuxDev-Vault-*.enc" 2>/dev/null | sort -r)
+        fi
+        if [[ ${#default_search[@]} -gt 0 ]]; then
+            target_file="${default_search[0]}"
+            printf '%sFound recent vault backup: %s%s\n' "$BOLD$GREEN" "$target_file" "$NC"
+            printf '%sUse this backup file? [Y/n] or enter path: %s' "$BOLD$CYAN" "$NC"
+            local resp
+            read -rp "" resp
+            if [[ -n "$resp" && "$resp" != [yY]* ]]; then
+                target_file="$resp"
+            fi
+        else
+            printf '%sEnter path to encrypted vault archive (.enc): %s' "$BOLD$CYAN" "$NC"
+            read -rp "" target_file
+        fi
+    fi
+
+    target_file="$(echo "$target_file" | tr -d '[:space:]')"
+    if [[ ! -f "$target_file" ]]; then
+        error "Backup archive not found at: $target_file"
+        return 1
+    fi
+
+    info "Restoring developer vault from: $target_file..."
+    printf '%sEnter decryption passphrase:%s\n' "$BOLD$YELLOW" "$NC"
+    if openssl enc -d -aes-256-cbc -pbkdf2 -iter 100000 -in "$target_file" | (cd "$HOME" && tar -xvf -); then
+        [[ -f "$HOME/.ai-env" ]] && chmod 600 "$HOME/.ai-env"
+        if [[ -d "$HOME/.ssh" ]]; then
+            chmod 700 "$HOME/.ssh"
+            find "$HOME/.ssh" -name "id_*" ! -name "*.pub" -exec chmod 600 {} + 2>/dev/null || true
+            find "$HOME/.ssh" -name "*.pub" -exec chmod 644 {} + 2>/dev/null || true
+            [[ -f "$HOME/.ssh/known_hosts" ]] && chmod 644 "$HOME/.ssh/known_hosts" 2>/dev/null || true
+        fi
+        success "Encrypted developer vault restored successfully!"
+        info "Enforced secure permissions (600 on ~/.ai-env and private SSH keys)."
+    else
+        error "Decryption failed. Check if passphrase or archive is valid."
+        return 1
+    fi
+}
+
+vault_interactive() {
+    local theme_file="${1:-}"
+    if [[ -n "$theme_file" ]] && command -v dialog >/dev/null 2>&1; then
+        local v_choice=""
+        local v_exit=0
+        v_choice=$(DIALOGRC="$theme_file" dialog --stdout --clear \
+            --colors \
+            --title " \Zb\Z6Encrypted Developer Vault\Zn " \
+            --menu "Select a vault operation:" 12 65 2 \
+            "1" "🔒 Backup Secrets & Config to Encrypted Archive" \
+            "2" "🔓 Restore Developer Environment from Archive") || v_exit=$?
+        if [[ $v_exit -ne 0 || -z "$v_choice" ]]; then
+            return 0
+        fi
+        clear
+        if [[ "$v_choice" == "1" ]]; then
+            backup_vault
+        elif [[ "$v_choice" == "2" ]]; then
+            restore_vault
+        fi
+    else
+        clear 2>/dev/null || true
+        printf '%s=== Encrypted Developer Vault ===%s\n\n' "$BOLD$CYAN" "$NC"
+        printf '1) %sBackup secrets & environment%s (~/.ai-env, ~/.ssh, ~/.gitconfig)\n' "$BOLD$GREEN" "$NC"
+        printf '2) %sRestore environment%s from encrypted archive\n' "$BOLD$YELLOW" "$NC"
+        printf '0) Return to main menu\n\n'
+        printf '%sSelect an option [1-2, or 0]: %s' "$BOLD$CYAN" "$NC"
+        local v_sel
+        read -rp "" v_sel
+        case "$v_sel" in
+            1) backup_vault ;;
+            2) restore_vault ;;
+            *) info "Vault operation canceled." ;;
+        esac
+    fi
+}
+
+run_wizard_dialog() {
+    local theme_file="$1"
+    local s1_d s2_d s3_d s4_d s5_d s6_d
+    get_stage_status 1 && s1_d="off" || s1_d="on"
+    get_stage_status 2 && s2_d="off" || s2_d="on"
+    get_stage_status 3 && s3_d="off" || s3_d="on"
+    get_stage_status 4 && s4_d="off" || s4_d="on"
+    get_stage_status 5 && s5_d="off" || s5_d="on"
+    get_stage_status 6 && s6_d="off" || s6_d="on"
+
+    local selections=""
+    local wiz_exit=0
+    selections=$(DIALOGRC="$theme_file" dialog --stdout --clear \
+        --colors \
+        --title " \Zb\Z6Custom Multi-Stage Selection Wizard\Zn " \
+        --checklist "Toggle stages with \Zb\Z3Spacebar\Zn and press \Zb\Z3Enter\Zn to execute:\n(Uncompleted stages are pre-selected)" \
+        18 72 6 \
+        "1" "Stage 01: Base System, Repos & Zsh" "$s1_d" \
+        "2" "Stage 02: Essentials & Dev Toolchains" "$s2_d" \
+        "3" "Stage 03: Node.js 24 & Package Managers" "$s3_d" \
+        "4" "Stage 04: AI CLI Suite (5 Assistants)" "$s4_d" \
+        "5" "Stage 05: Private AI Environment (~/.ai-env)" "$s5_d" \
+        "6" "Stage 06: Android SDK, NDK & OpenJDK 21" "$s6_d") || wiz_exit=$?
+
+    if [[ $wiz_exit -ne 0 || -z "$selections" ]]; then
+        info "Wizard canceled."
+        return 0
+    fi
+
+    clear
+    info "Executing selected wizard stages: $selections"
+    local sel
+    for sel in $selections; do
+        sel="${sel//\"/}"
+        case "$sel" in
+            1) run_stage "01-termux-base.sh" "Stage 01: Termux Base Setup" ;;
+            2) run_stage "02-termux-essentials.sh" "Stage 02: Essentials & Dev Tools" ;;
+            3) run_stage "03-termux-node-toolchain.sh" "Stage 03: Node.js Toolchain" ;;
+            4) run_stage "04-termux-ai-cli.sh" "Stage 04: AI CLI Suite" ;;
+            5) run_stage "05-ai-env.sh" "Stage 05: AI Environment & Credentials" ;;
+            6) run_stage "06-termux-android-sdk.sh" "Stage 06: Android SDK & NDK Toolchain" ;;
+        esac
+    done
+    verify_all
+}
+
+run_wizard_ansi() {
+    clear 2>/dev/null || true
+    printf '%s=== Custom Multi-Stage Selection Wizard ===%s\n\n' "$BOLD$CYAN" "$NC"
+    printf 'Select which stages to execute. Enter numbers separated by space or commas (e.g. 1 3 6):\n\n'
+
+    local s1_a s2_a s3_a s4_a s5_a s6_a
+    get_stage_status 1 && s1_a="${GREEN}[Installed]${NC}" || s1_a="${YELLOW}[Pending]${NC}"
+    get_stage_status 2 && s2_a="${GREEN}[Installed]${NC}" || s2_a="${YELLOW}[Pending]${NC}"
+    get_stage_status 3 && s3_a="${GREEN}[Installed]${NC}" || s3_a="${YELLOW}[Pending]${NC}"
+    get_stage_status 4 && s4_a="${GREEN}[Installed]${NC}" || s4_a="${YELLOW}[Pending]${NC}"
+    get_stage_status 5 && s5_a="${GREEN}[Installed]${NC}" || s5_a="${YELLOW}[Pending]${NC}"
+    get_stage_status 6 && s6_a="${GREEN}[Installed]${NC}" || s6_a="${YELLOW}[Pending]${NC}"
+
+    printf '  [1] Stage 01: Base System, Repositories & Zsh %s\n' "$s1_a"
+    printf '  [2] Stage 02: Build Tools, Compilers & Dev Essentials %s\n' "$s2_a"
+    printf '  [3] Stage 03: Node.js 24 LTS & Package Managers %s\n' "$s3_a"
+    printf '  [4] Stage 04: AI Coding Assistant Suite (5 CLIs) %s\n' "$s4_a"
+    printf '  [5] Stage 05: Private AI Credentials (~/.ai-env) %s\n' "$s5_a"
+    printf '  [6] Stage 06: Android SDK, NDK (Clang 21) & Java %s\n\n' "$s6_a"
+
+    local pending=()
+    get_stage_status 1 || pending+=(1)
+    get_stage_status 2 || pending+=(2)
+    get_stage_status 3 || pending+=(3)
+    get_stage_status 4 || pending+=(4)
+    get_stage_status 5 || pending+=(5)
+    get_stage_status 6 || pending+=(6)
+
+    local def_str="${pending[*]:-}"
+    printf '%sEnter stages to execute [default: %s, or q to cancel]: %s' "$BOLD$CYAN" "${def_str:-all}" "$NC"
+    local raw_wiz
+    read -rp "" raw_wiz
+    raw_wiz="${raw_wiz:-$def_str}"
+
+    if [[ "$raw_wiz" =~ ^[qQ] || -z "$raw_wiz" ]]; then
+        info "Wizard canceled."
+        return 0
+    fi
+
+    local cleaned
+    cleaned="$(echo "$raw_wiz" | tr ',' ' ')"
+    local sel
+    for sel in $cleaned; do
+        case "$sel" in
+            1) run_stage "01-termux-base.sh" "Stage 01: Termux Base Setup" ;;
+            2) run_stage "02-termux-essentials.sh" "Stage 02: Essentials & Dev Tools" ;;
+            3) run_stage "03-termux-node-toolchain.sh" "Stage 03: Node.js Toolchain" ;;
+            4) run_stage "04-termux-ai-cli.sh" "Stage 04: AI CLI Suite" ;;
+            5) run_stage "05-ai-env.sh" "Stage 05: AI Environment & Credentials" ;;
+            6) run_stage "06-termux-android-sdk.sh" "Stage 06: Android SDK & NDK Toolchain" ;;
+            *) warn "Skipping unknown stage index: $sel" ;;
+        esac
+    done
+    verify_all
+}
+
+run_wizard() {
+    local theme_file="${1:-}"
+    if [[ -n "$theme_file" ]] && command -v dialog >/dev/null 2>&1; then
+        run_wizard_dialog "$theme_file"
+    else
+        run_wizard_ansi
+    fi
+}
+
 show_quick_help_dialog() {
     local theme_file="$1"
     local help_text="\Zb\Z6Termux Developer Suite\Zn - Quick Reference Guide\n\n\
@@ -423,17 +686,24 @@ show_quick_help_dialog() {
   • \ZbEsc\Zn        : Exit / Return to Shell\n\n\
 \ZbKey Capabilities:\Zn\n\
   • \Zb[1] Pipeline\Zn    : Complete workstation setup (Stages 01 -> 06)\n\
+  • \Zb[W] Wizard\Zn      : Multi-stage selection checklist with auto-detection\n\
   • \Zb[2-7] Stages\Zn    : Base, Tools, Node.js 24, AI CLIs, Credentials, Android\n\
   • \Zb[8] APK Builder\Zn : Zero-Gradle instant Android APK compilation (<1s)\n\
-  • \Zb[9] Verify\Zn      : Full toolchain status audit across all compilers & CLIs\n\
-  • \Zb[10] 30-Pt Test\Zn : Ruthless stress & verification test suite\n\
-  • \Zb[11] Doctor\Zn     : Hardware telemetry, RAM, storage & diagnostics\n\
-  • \Zb[12] Keys\Zn       : Modern developer extra-keys fast touch coding bar\n\
-  • \Zb[13] PPK\Zn        : Disable Android Phantom Process Killer\n\
-  • \Zb[14] Prune NDK\Zn  : Reclaims ~600MB storage by removing unused sysroots\n\
-  • \Zb[15] Clean\Zn      : Deep clean package archives, caches & locks\n\
-  • \Zb[16] Pre-Commit\Zn : Install local Git security & ShellCheck hook\n\n\
+  • \Zb[9] Wireless ADB\Zn: Android 11+ on-device wireless debugging pair/connect\n\
+  • \Zb[10] Verify\Zn     : Full toolchain status audit across all compilers & CLIs\n\
+  • \Zb[11] 30-Pt Test\Zn : Ruthless stress & verification test suite\n\
+  • \Zb[12] Doctor\Zn     : Hardware telemetry, RAM, storage & diagnostics\n\
+  • \Zb[13] Keys\Zn       : Modern developer extra-keys fast touch coding bar\n\
+  • \Zb[14] PPK\Zn        : Disable Android Phantom Process Killer\n\
+  • \Zb[15] Prune NDK\Zn  : Reclaims ~600MB storage by removing unused sysroots\n\
+  • \Zb[16] Vault\Zn      : Encrypted backup & restore (AES-256-CBC) for secrets\n\
+  • \Zb[17] Clean\Zn      : Deep clean package archives, caches & locks\n\
+  • \Zb[18] Pre-Commit\Zn : Install local Git security & ShellCheck hook\n\n\
 \ZbGlobal CLI Commands:\Zn\n\
+  • \Zbtsuite --wizard\Zn   : Custom stage selection wizard\n\
+  • \Zbtsuite --backup\Zn   : Create encrypted developer vault archive\n\
+  • \Zbtsuite --restore\Zn  : Restore environment from encrypted vault\n\
+  • \Zbtsuite --adb\Zn      : Android 11+ wireless ADB pairing helper\n\
   • \Zbtsuite --apk\Zn      : Build APK directly from command line\n\
   • \Zbtsuite --verify\Zn   : Run toolchain verification\n\
   • \Zbtsuite --test\Zn     : Run 30-point test suite\n\
@@ -452,24 +722,31 @@ show_quick_help_ansi() {
     printf '%s╰───────────────────────────────────────────────────────────────────╯%s\n\n' "$CYAN" "$NC"
 
     printf '%sNavigation & Shortcuts:%s\n' "$BOLD$YELLOW" "$NC"
-    printf '  • Type any option number %s(1-16, 0)%s or mnemonic letter %s(A-Z)%s and press Enter.\n' "$CYAN" "$NC" "$CYAN" "$NC"
+    printf '  • Type any option number %s(1-18, 0)%s or letter %s(A-Z, W, ?)%s for instant response.\n' "$CYAN" "$NC" "$CYAN" "$NC"
     printf '  • Tab-completion is available for all flags: %stsuite --<TAB>%s\n\n' "$GREEN" "$NC"
 
     printf '%sCore Features:%s\n' "$BOLD$YELLOW" "$NC"
     printf '  %s[1/A]%s Run Complete Pipeline    : Sequential execution of Stages 01 to 06.\n' "$BOLD$CYAN" "$NC"
+    printf '  %s[W]%s   Custom Stage Wizard     : Interactive multi-stage checklist.\n' "$BOLD$CYAN" "$NC"
     printf '  %s[2-7]%s Modular Stages          : Individual provisioning stages.\n' "$BOLD$CYAN" "$NC"
     printf '  %s[8/K]%s Standalone APK Builder  : Sub-second zero-Gradle APK compilation engine.\n' "$BOLD$GREEN" "$NC"
-    printf '  %s[9/V]%s Verify All Toolchains   : Status report of all compilers, SDKs, and CLIs.\n' "$BOLD$GREEN" "$NC"
-    printf ' %s[10/T]%s 30-Point Stress Suite   : Full regression test verifying locks, DEX, APK, NDK.\n' "$BOLD$GREEN" "$NC"
-    printf ' %s[11/H]%s System Doctor           : Real-time RAM, storage, and platform diagnostics.\n' "$BOLD$GREEN" "$NC"
-    printf ' %s[12/X]%s Developer Extra-Keys    : Fast mobile coding keyboard bar in Termux.\n' "$BOLD$YELLOW" "$NC"
-    printf ' %s[13/P]%s Disable PPK             : Remove 32-child-process background restriction.\n' "$BOLD$YELLOW" "$NC"
-    printf ' %s[14/R]%s Prune Unused NDK        : Save ~600MB storage by removing unused sysroots.\n' "$BOLD$YELLOW" "$NC"
-    printf ' %s[15/C]%s Deep Clean System       : Clear caches, apt archives, and stale locks.\n' "$BOLD$YELLOW" "$NC"
-    printf ' %s[16/G]%s Install Pre-Commit Hook : Non-destructive Git commit validation hook.\n\n' "$BOLD$YELLOW" "$NC"
+    printf '  %s[9/Y]%s Wireless ADB Helper     : Android 11+ on-device wireless debugging.\n' "$BOLD$GREEN" "$NC"
+    printf ' %s[10/V]%s Verify All Toolchains   : Status report of all compilers, SDKs, and CLIs.\n' "$BOLD$GREEN" "$NC"
+    printf ' %s[11/T]%s 30-Point Stress Suite   : Full regression test verifying locks, DEX, APK, NDK.\n' "$BOLD$GREEN" "$NC"
+    printf ' %s[12/H]%s System Doctor           : Real-time RAM, storage, and platform diagnostics.\n' "$BOLD$GREEN" "$NC"
+    printf ' %s[13/X]%s Developer Extra-Keys    : Fast mobile coding keyboard bar in Termux.\n' "$BOLD$YELLOW" "$NC"
+    printf ' %s[14/P]%s Disable PPK             : Remove 32-child-process background restriction.\n' "$BOLD$YELLOW" "$NC"
+    printf ' %s[15/R]%s Prune Unused NDK        : Save ~600MB storage by removing unused sysroots.\n' "$BOLD$YELLOW" "$NC"
+    printf ' %s[16/L]%s Encrypted Vault         : AES-256-CBC backup/restore of API keys & configs.\n' "$BOLD$YELLOW" "$NC"
+    printf ' %s[17/C]%s Deep Clean System       : Clear caches, apt archives, and stale locks.\n' "$BOLD$YELLOW" "$NC"
+    printf ' %s[18/G]%s Install Pre-Commit Hook : Non-destructive Git commit validation hook.\n\n' "$BOLD$YELLOW" "$NC"
 
     printf '%sGlobal Commands:%s\n' "$BOLD$YELLOW" "$NC"
     printf '  tsuite                 : Open interactive TUI from anywhere\n'
+    printf '  tsuite --wizard        : Interactive multi-stage selection wizard\n'
+    printf '  tsuite --backup        : Create encrypted developer vault (.enc)\n'
+    printf '  tsuite --restore       : Restore environment from encrypted vault\n'
+    printf '  tsuite --adb           : Android 11+ wireless ADB pairing helper\n'
     printf '  termux-apk-build -p .  : Compile current Android project into signed APK\n'
     printf '  tsuite --doctor        : Run system health diagnostics\n'
     printf '  tsuite --test          : Run 30-point stress test\n\n'
@@ -556,6 +833,7 @@ THEME_EOF
             --menu "Select an action with \Zb\Z3Up/Down\Zn and press \Zb\Z3Enter\Zn:" \
             0 0 0 \
             "1"  "▶  Run Complete Pipeline (Stages 01 -> 06)" \
+            "W"  "🧙 Custom Multi-Stage Selection Wizard" \
             "2"  "$s1_d Stage 01: Base System, Repos & Zsh" \
             "3"  "$s2_d Stage 02: Essentials & Dev Toolchains" \
             "4"  "$s3_d Stage 03: Node.js 24 & Package Managers" \
@@ -563,14 +841,16 @@ THEME_EOF
             "6"  "$s5_d Stage 05: Private AI Environment (~/.ai-env)" \
             "7"  "$s6_d Stage 06: Android SDK, NDK & OpenJDK 21" \
             "8"  "⚡ Build Android APK (Sub-Second Engine)" \
-            "9"  "✓  Verify All Installed Tools & CLIs" \
-            "10" "🧪 Run Ruthless 30-Point Stress Test Suite" \
-            "11" "🩺 System Doctor: Health & Diagnostics" \
-            "12" "⌨️  Configure Developer Extra-Keys" \
-            "13" "🔋 Disable Phantom Process Killer" \
-            "14" "✂️  Prune Unused NDK Sysroots (Save ~600MB)" \
-            "15" "🧹 Deep Clean Cache, Temp Files & Locks" \
-            "16" "🛡️  Install Local Git Pre-Commit Hook" \
+            "9"  "📶 Wireless ADB Pairing & Connect (Android 11+)" \
+            "10" "✓  Verify All Installed Tools & CLIs" \
+            "11" "🧪 Run Ruthless 30-Point Stress Test Suite" \
+            "12" "🩺 System Doctor: Health & Diagnostics" \
+            "13" "⌨️  Configure Developer Extra-Keys" \
+            "14" "🔋 Disable Phantom Process Killer" \
+            "15" "✂️  Prune Unused NDK Sysroots (Save ~600MB)" \
+            "16" "🔒 Encrypted Developer Vault (Backup / Restore)" \
+            "17" "🧹 Deep Clean Cache, Temp Files & Locks" \
+            "18" "🛡️  Install Local Git Pre-Commit Hook" \
             "0"  "🚪 Exit to Shell") || exit_code=$?
 
         # Handle Help and Doctor buttons
@@ -598,6 +878,7 @@ THEME_EOF
                 run_stage "06-termux-android-sdk.sh" "Stage 06: Android SDK & NDK Toolchain"
                 verify_all
                 ;;
+            w|W) run_wizard "$theme_file" ;;
             2) run_stage "01-termux-base.sh" "Stage 01: Termux Base Setup" ;;
             3) run_stage "02-termux-essentials.sh" "Stage 02: Essentials & Dev Tools" ;;
             4) run_stage "03-termux-node-toolchain.sh" "Stage 03: Node.js Toolchain" ;;
@@ -622,14 +903,16 @@ THEME_EOF
                     "$SETUP_DIR/bin/termux-apk-build" -p "$p_dir" -o "${o_apk:-app-signed.apk}" "${extra_opts[@]}"
                 fi
                 ;;
-            9) verify_all ;;
-            10) bash "$SETUP_DIR/test-suite.sh" ;;
-            11) doctor_system ;;
-            12) tune_extra_keys ;;
-            13) tune_device ;;
-            14) prune_ndk ;;
-            15) clean_system ;;
-            16) install_git_hooks ;;
+            9) launch_wireless_adb ;;
+            10) verify_all ;;
+            11) bash "$SETUP_DIR/test-suite.sh" ;;
+            12) doctor_system ;;
+            13) tune_extra_keys ;;
+            14) tune_device ;;
+            15) prune_ndk ;;
+            16) vault_interactive "$theme_file" ;;
+            17) clean_system ;;
+            18) install_git_hooks ;;
             0) break ;;
         esac
 
@@ -678,6 +961,7 @@ show_menu_ansi() {
 
         printf ' %s%s┌── [1] COMPLETE WORKSTATION PIPELINE ────────────────────────────┐%s\n' "$BOLD" "$BLUE" "$NC"
         printf ' %s│%s  %s[1/A]%s  %s▶%s  Run Complete Workstation Setup (Stages 01 -> 06)      %s│%s\n' "$BLUE" "$NC" "$BOLD$YELLOW" "$NC" "$GREEN$BOLD" "$NC" "$BLUE" "$NC"
+        printf ' %s│%s  %s[W]%s    %s🧙%s  Custom Multi-Stage Selection Wizard (Checklist)        %s│%s\n' "$BLUE" "$NC" "$BOLD$CYAN" "$NC" "$CYAN$BOLD" "$NC" "$BLUE" "$NC"
         printf ' %s└─── Modular Setup Stages ─────────────────────────────────────────┘%s\n' "$BLUE" "$NC"
         printf '   %s[2/B]%s %s Stage 01: Base System, Repositories & Zsh Shell\n' "$BOLD$CYAN" "$NC" "$s1_a"
         printf '   %s[3/E]%s %s Stage 02: Build Tools, Compilers & Dev Essentials\n' "$BOLD$CYAN" "$NC" "$s2_a"
@@ -686,26 +970,44 @@ show_menu_ansi() {
         printf '   %s[6/S]%s %s Stage 05: Private AI Environment & Credentials (~/.ai-env)\n' "$BOLD$CYAN" "$NC" "$s5_a"
         printf '   %s[7/D]%s %s Stage 06: Android SDK, NDK (Clang 21) & OpenJDK 21\n\n' "$BOLD$CYAN" "$NC" "$s6_a"
 
-        printf ' %s%s┌── [2] APPLICATION COMPILATION & VERIFICATION ───────────────────┐%s\n' "$BOLD" "$GREEN" "$NC"
+        printf ' %s%s┌── [2] APPLICATION COMPILATION & DEVICE TOOLS ───────────────────┐%s\n' "$BOLD" "$GREEN" "$NC"
         printf '   %s[8/K]%s  ⚡ Build Android APK (Sub-Second Zero-Gradle Engine)\n' "$BOLD$GREEN" "$NC"
-        printf '   %s[9/V]%s  ✓  Verify All Installed Compilers, SDKs & Toolchains\n' "$BOLD$GREEN" "$NC"
-        printf '  %s[10/T]%s  🧪 Run Ruthless 30-Point Stress & Verification Suite\n' "$BOLD$GREEN" "$NC"
-        printf '  %s[11/H]%s  🩺 System Doctor: Hardware, RAM & Stability Diagnostics\n' "$BOLD$GREEN" "$NC"
+        printf '   %s[9/Y]%s  📶 Wireless ADB Pairing & Connect (Android 11+)\n' "$BOLD$GREEN" "$NC"
+        printf '  %s[10/V]%s  ✓  Verify All Installed Compilers, SDKs & Toolchains\n' "$BOLD$GREEN" "$NC"
+        printf '  %s[11/T]%s  🧪 Run Ruthless 30-Point Stress & Verification Suite\n' "$BOLD$GREEN" "$NC"
+        printf '  %s[12/H]%s  🩺 System Doctor: Hardware, RAM & Stability Diagnostics\n' "$BOLD$GREEN" "$NC"
         printf ' %s└───────────────────────────────────────────────────────────────────┘%s\n\n' "$GREEN" "$NC"
 
         printf ' %s%s┌── [3] SYSTEM TUNING, STORAGE & REPOSITORY HYGIENE ───────────────┐%s\n' "$BOLD" "$YELLOW" "$NC"
-        printf '  %s[12/X]%s  ⌨️  Configure Developer Extra-Keys (Fast Touch Coding Bar)\n' "$BOLD$YELLOW" "$NC"
-        printf '  %s[13/P]%s  🔋 Disable Phantom Process Killer (Android 14/15/16 PPK)\n' "$BOLD$YELLOW" "$NC"
-        printf '  %s[14/R]%s  ✂️  Prune Unused NDK Sysroots (Frees ~600MB Storage)\n' "$BOLD$YELLOW" "$NC"
-        printf '  %s[15/C]%s  🧹 Deep Clean Cache, Temp Files & Concurrency Locks\n' "$BOLD$YELLOW" "$NC"
-        printf '  %s[16/G]%s  🛡️  Install Local Git Pre-Commit Security Lint Hook\n' "$BOLD$YELLOW" "$NC"
+        printf '  %s[13/X]%s  ⌨️  Configure Developer Extra-Keys (Fast Touch Coding Bar)\n' "$BOLD$YELLOW" "$NC"
+        printf '  %s[14/P]%s  🔋 Disable Phantom Process Killer (Android 14/15/16 PPK)\n' "$BOLD$YELLOW" "$NC"
+        printf '  %s[15/R]%s  ✂️  Prune Unused NDK Sysroots (Frees ~600MB Storage)\n' "$BOLD$YELLOW" "$NC"
+        printf '  %s[16/L]%s  🔒 Encrypted Developer Vault (Backup / Restore Secrets)\n' "$BOLD$YELLOW" "$NC"
+        printf '  %s[17/C]%s  🧹 Deep Clean Cache, Temp Files & Concurrency Locks\n' "$BOLD$YELLOW" "$NC"
+        printf '  %s[18/G]%s  🛡️  Install Local Git Pre-Commit Security Lint Hook\n' "$BOLD$YELLOW" "$NC"
         printf ' %s└───────────────────────────────────────────────────────────────────┘%s\n\n' "$YELLOW" "$NC"
 
         printf '  %s[?/U]%s  📖 Help & Documentation Guide\n' "$BOLD$CYAN" "$NC"
         printf '  %s[0/Q]%s  🚪 Exit to Shell\n\n' "$BOLD$RED" "$NC"
 
-        printf '%sSelect an option [1-16, A-Z, ?, or 0/Q to exit]: %s' "$BOLD$CYAN" "$NC"
-        read -rp "" raw_choice
+        printf '%sSelect an option [1-18, A-Z, ?, or 0/Q to exit]: %s' "$BOLD$CYAN" "$NC"
+        local raw_choice=""
+        if [[ -t 0 ]]; then
+            local k1="" k2=""
+            read -rsn1 k1
+            if [[ "$k1" == "1" ]]; then
+                if read -rsn1 -t 0.35 k2 && [[ "$k2" =~ [0-8] ]]; then
+                    raw_choice="${k1}${k2}"
+                else
+                    raw_choice="$k1"
+                fi
+            elif [[ -n "$k1" ]]; then
+                raw_choice="$k1"
+            fi
+            printf '%s\n' "$raw_choice"
+        else
+            read -rp "" raw_choice
+        fi
         local choice
         choice="$(echo "${raw_choice:-}" | tr '[:upper:]' '[:lower:]' | tr -d '[:space:]')"
 
@@ -719,6 +1021,7 @@ show_menu_ansi() {
                 run_stage "06-termux-android-sdk.sh" "Stage 06: Android SDK & NDK Toolchain"
                 verify_all
                 ;;
+            w|wiz|wizard) run_wizard_ansi ;;
             2|b) run_stage "01-termux-base.sh" "Stage 01: Termux Base Setup" ;;
             3|e) run_stage "02-termux-essentials.sh" "Stage 02: Essentials & Dev Tools" ;;
             4|n) run_stage "03-termux-node-toolchain.sh" "Stage 03: Node.js Toolchain" ;;
@@ -726,14 +1029,16 @@ show_menu_ansi() {
             6|s) run_stage "05-ai-env.sh" "Stage 05: AI Environment & Credentials" ;;
             7|d) run_stage "06-termux-android-sdk.sh" "Stage 06: Android SDK & NDK Toolchain" ;;
             8|k) build_apk_interactive ;;
-            9|v) verify_all ;;
-            10|t) bash "$SETUP_DIR/test-suite.sh" ;;
-            11|h) doctor_system ;;
-            12|x) tune_extra_keys ;;
-            13|p) tune_device ;;
-            14|r) prune_ndk ;;
-            15|c) clean_system ;;
-            16|g) install_git_hooks ;;
+            9|y|adb) launch_wireless_adb ;;
+            10|v) verify_all ;;
+            11|t) bash "$SETUP_DIR/test-suite.sh" ;;
+            12|h) doctor_system ;;
+            13|x) tune_extra_keys ;;
+            14|p) tune_device ;;
+            15|r) prune_ndk ;;
+            16|l|vault) vault_interactive ;;
+            17|c) clean_system ;;
+            18|g) install_git_hooks ;;
             \?|u|help)
                 show_quick_help_ansi
                 ;;
@@ -801,6 +1106,19 @@ if [[ $# -gt 0 ]]; then
         --test|--smoke-test)
             bash "$SETUP_DIR/test-suite.sh"
             ;;
+        --wizard)
+            run_wizard
+            ;;
+        --backup)
+            backup_vault "${2:-}"
+            ;;
+        --restore)
+            restore_vault "${2:-}"
+            ;;
+        --adb|--adb-pair|--adb-connect)
+            shift
+            launch_wireless_adb "$@"
+            ;;
         --clean)
             clean_system
             ;;
@@ -820,6 +1138,7 @@ if [[ $# -gt 0 ]]; then
             printf 'Usage: %s [OPTION]\n\n' "$(basename "$0")"
             printf 'Options:\n'
             printf '  --all            Execute all setup stages (01 -> 06)\n'
+            printf '  --wizard         Launch custom multi-stage selection wizard\n'
             printf '  --base           Execute Stage 01: Base & Repos\n'
             printf '  --essentials     Execute Stage 02: Essentials & Dev Tools\n'
             printf '  --node           Execute Stage 03: Node.js Toolchain\n'
@@ -827,6 +1146,9 @@ if [[ $# -gt 0 ]]; then
             printf '  --ai-env         Execute Stage 05: AI Environment Setup\n'
             printf '  --android        Execute Stage 06: Android SDK & NDK Setup\n'
             printf '  --apk            Build Android APK interactively with zero Gradle\n'
+            printf '  --adb [args]     Android 11+ wireless ADB pairing & connect helper\n'
+            printf '  --backup [file]  Export encrypted developer vault (AES-256-CBC)\n'
+            printf '  --restore [file] Restore developer vault from encrypted archive\n'
             printf '  --verify         Verify all installed tools\n'
             printf '  --doctor         Run Termux system health & environment diagnostics\n'
             printf '  --test           Run ruthless stress & verification test suite\n'
