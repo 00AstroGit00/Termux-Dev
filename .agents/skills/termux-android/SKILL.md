@@ -55,15 +55,19 @@ gradle --version
 # Auto-detect Android Studio / Gradle project structure:
 termux-apk-build -p /path/to/project -o app-signed.apk
 
+# With external JAR dependencies and direct ADB device installation:
+termux-apk-build -p /path/to/project -j libs/ -i -o app-signed.apk
+
 # Or specify custom components directly:
-termux-apk-build -m AndroidManifest.xml -s src/ -r res/ -l lib/ -o app-signed.apk
+termux-apk-build -m AndroidManifest.xml -s src/ -r res/ -l lib/ -j libs/ -i -o app-signed.apk
 ```
 
 Features:
 - Sub-second build speed with 0 MB background JVM memory footprint.
-- Full multi-DEX support (`classes*.dex`).
+- Full multi-DEX support (`classes*.dex`) and external `.jar` bytecode compilation.
 - Bundles uncompressed native libraries (`.so`) for Android 15+ direct `mmap()`.
 - Enforces strict 16KB page-boundary alignment (`zipalign -P 16 -f 4`).
+- Direct on-device installation and app launching via ADB (`-i, --install`).
 - Signs with v1, v2, and v3 APK Signature Schemes.
 
 ---
