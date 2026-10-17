@@ -349,6 +349,7 @@ verify_all() {
     check_cmd "SDK Manager" sdkmanager
     check_cmd "Android CLI" android
     check_cmd "APK Builder" termux-apk-build
+    check_cmd "Wireless ADB" termux-wireless-adb
 
     printf '\n'
 }

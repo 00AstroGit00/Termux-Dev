@@ -217,6 +217,10 @@ case "$1" in
     guide)
         show_guide
         ;;
+    version|-v|--version)
+        printf 'termux-wireless-adb version 1.0.0\n'
+        exit 0
+        ;;
     help|-h|--help)
         show_help
         ;;

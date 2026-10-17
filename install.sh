@@ -121,11 +121,21 @@ if [[ -f "$SUITE_DIR/bin/termux-apk-build" ]]; then
     chmod 755 "$BIN_DIR/termux-apk-build" "$BIN_DIR/apk-build" "$LOCAL_BIN/termux-apk-build" "$LOCAL_BIN/apk-build"
 fi
 
+if [[ -f "$SUITE_DIR/bin/termux-wireless-adb" ]]; then
+    chmod 755 "$SUITE_DIR/bin/termux-wireless-adb"
+    cp -f "$SUITE_DIR/bin/termux-wireless-adb" "$BIN_DIR/termux-wireless-adb"
+    cp -f "$SUITE_DIR/bin/termux-wireless-adb" "$BIN_DIR/wireless-adb"
+    cp -f "$SUITE_DIR/bin/termux-wireless-adb" "$LOCAL_BIN/termux-wireless-adb"
+    cp -f "$SUITE_DIR/bin/termux-wireless-adb" "$LOCAL_BIN/wireless-adb"
+    chmod 755 "$BIN_DIR/termux-wireless-adb" "$BIN_DIR/wireless-adb" "$LOCAL_BIN/termux-wireless-adb" "$LOCAL_BIN/wireless-adb"
+fi
+
 chmod 755 "$BIN_DIR/termux-suite" "$BIN_DIR/tsuite" "$LOCAL_BIN/termux-suite" "$LOCAL_BIN/tsuite"
 
 command -v termux-fix-shebang >/dev/null 2>&1 && {
     termux-fix-shebang "$BIN_DIR/termux-suite" "$BIN_DIR/tsuite" "$LOCAL_BIN/termux-suite" "$LOCAL_BIN/tsuite" 2>/dev/null || true
     [[ -f "$BIN_DIR/termux-apk-build" ]] && termux-fix-shebang "$BIN_DIR/termux-apk-build" "$BIN_DIR/apk-build" "$LOCAL_BIN/termux-apk-build" "$LOCAL_BIN/apk-build" 2>/dev/null || true
+    [[ -f "$BIN_DIR/termux-wireless-adb" ]] && termux-fix-shebang "$BIN_DIR/termux-wireless-adb" "$BIN_DIR/wireless-adb" "$LOCAL_BIN/termux-wireless-adb" "$LOCAL_BIN/wireless-adb" 2>/dev/null || true
 }
 
 # Install shell completions for Zsh and Bash
