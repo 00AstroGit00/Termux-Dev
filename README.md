@@ -21,7 +21,8 @@ Turn your Android device into a powerhouse software engineering workstation. **T
 - [Quick Start](#-quick-start)
   - [Remote One-Liner Bootstrap](#1-remote-one-liner-bootstrap)
   - [Interactive TUI Launcher](#2-interactive-tui-launcher)
-  - [Command-Line Options](#3-command-line-options)
+  - [Shell Tab-Completion](#3-shell-tab-completion-zsh--bash)
+  - [Command-Line Options](#4-command-line-options)
 - [Modular Provisioning Stages](#-modular-provisioning-stages)
   - [Stage 01: Base System, Repositories & Zsh](#stage-01-base-system-repositories--zsh-01-termux-basesh)
   - [Stage 02: Essentials & Developer Toolchains](#stage-02-essentials--developer-toolchains-02-termux-essentialssh)
@@ -136,37 +137,60 @@ termux-suite
 tsuite
 ```
 
-#### TUI Interface Walkthrough:
+#### Modern TUI Interface Walkthrough:
 ```text
- ┌────────── Termux Provisioning & AI Suite Manager (ARM64) ──────────┐
- │                                                                    │
- │  Select a stage or action using Up/Down arrow keys and Enter:      │
- │                                                                    │
- │   1  Run Full Suite (Stages 01 -> 06)                              │
- │   2  Stage 01: Base System, Repos & Zsh                            │
- │   3  Stage 02: Essentials & Dev Toolchains                         │
- │   4  Stage 03: Node.js & Package Managers (ARM64)                  │
- │   5  Stage 04: AI CLI Suite (agy, opencode, codex, gemini, copilot│
- │   6  Stage 05: AI Environment & Keys Template (~/.ai-env)          │
- │   7  Stage 06: Android SDK, NDK & TermuxVoid Toolchains            │
- │   8  Verify All Installed Tools                                    │
- │   9  Run Ruthless Stress & Verification Test Suite                 │
- │  10  Clean Package Cache, Temp Files & Locks                       │
- │  11  Prune Unused NDK Sysroots (Save ~600MB)                       │
- │  12  Tune Device: Disable Phantom Process Killer                   │
- │  13  Install Local Git Pre-Commit Hook                             │
- │  14  System Doctor: Health & Stability Diagnostics                 │
- │  15  Configure Developer Extra-Keys (Fast Coding Bar)              │
- │   0  Exit                                                          │
- │                                                                    │
- ├────────────────────────────────────────────────────────────────────┤
- │                       <  OK  >      < Cancel >                     │
- └────────────────────────────────────────────────────────────────────┘
+  Termux-Dev ARM64 Workstation  │  RAM: 4.8Gi Avail  │  Disk: 18.2Gi Free
+ ┌────────────────────── Termux Developer Suite ─────────────────────────┐
+ │ Select an action with Up/Down and press Enter:                        │
+ │                                                                       │
+ │  1   ▶  Run Complete Pipeline (Stages 01 -> 06)                       │
+ │  2   [✓] Stage 01: Base System, Repos & Zsh                           │
+ │  3   [✓] Stage 02: Essentials & Dev Toolchains                        │
+ │  4   [✓] Stage 03: Node.js 24 & Package Managers                      │
+ │  5   [✓] Stage 04: AI CLI Suite (5 Assistants)                        │
+ │  6   [✓] Stage 05: Private AI Environment (~/.ai-env)                 │
+ │  7   [✓] Stage 06: Android SDK, NDK & OpenJDK 21                      │
+ │  8   ⚡ Build Android APK (Sub-Second Engine)                          │
+ │  9   ✓  Verify All Installed Tools & CLIs                             │
+ │ 10   🧪 Run Ruthless 30-Point Stress Test Suite                       │
+ │ 11   🩺 System Doctor: Health & Diagnostics                           │
+ │ 12   ⌨️  Configure Developer Extra-Keys                                │
+ │ 13   🔋 Disable Phantom Process Killer                                │
+ │ 14   ✂️  Prune Unused NDK Sysroots (Save ~600MB)                       │
+ │ 15   🧹 Deep Clean Cache, Temp Files & Locks                           │
+ │ 16   🛡️  Install Local Git Pre-Commit Hook                             │
+ │  0   🚪 Exit to Shell                                                 │
+ ├───────────────────────────────────────────────────────────────────────┤
+ │                         <  OK  >      < Cancel >                      │
+ └───────────────────────────────────────────────────────────────────────┘
+```
+
+#### Responsive ANSI Card Fallback:
+When running in environments where ncurses is unavailable or over serial/SSH, the suite falls back cleanly to a grouped ANSI card interface with **mnemonic double-trigger hotkeys**:
+- `1` or `A` — Run Complete Pipeline
+- `2` or `B` — Stage 01: Base System & Zsh
+- `8` or `K` — Build Android APK
+- `10` or `T` — Run 30-Point Stress Test Suite
+- `11` or `H` — System Doctor & Diagnostics
+- `0` or `Q` — Exit to Shell
+
+---
+
+### 3. Shell Tab-Completion (Zsh & Bash)
+
+Fast, context-aware command tab-completions are provided and automatically installed into `$PREFIX/share/zsh/site-functions` and `$PREFIX/etc/bash_completion.d`:
+
+```bash
+tsuite --<TAB>
+# Completes: --all, --apk, --verify, --doctor, --test, --clean, --prune-ndk, etc.
+
+termux-apk-build -<TAB>
+# Completes: -p (--project), -m (--manifest), -s (--src), -r (--res), -j (--jars), -o (--output)
 ```
 
 ---
 
-### 3. Command-Line Options
+### 4. Command-Line Options
 
 You can also run specific tasks directly without the TUI:
 
@@ -178,6 +202,7 @@ You can also run specific tasks directly without the TUI:
 ./setup.sh --ai             # Stage 04: AI CLI Suite provisioning
 ./setup.sh --ai-env         # Stage 05: Setup private ~/.ai-env template
 ./setup.sh --android        # Stage 06: Android SDK, NDK & TermuxVoid setup
+./setup.sh --apk            # Interactive standalone APK builder (zero Gradle)
 ./setup.sh --verify         # Inspect status of all installed tools
 ./setup.sh --doctor         # Run Termux system health & environment diagnostics
 ./setup.sh --test           # Run ruthless 30-point stress & verification suite
@@ -474,6 +499,10 @@ Termux-Dev/
 ├── bin/
 │   ├── termux-suite            # Global CLI launcher executable
 │   └── termux-apk-build        # Zero-Gradle instant standalone APK builder
+├── completions/
+│   ├── _tsuite                 # Zsh completion for tsuite and termux-suite
+│   ├── _termux-apk-build       # Zsh completion for termux-apk-build and apk-build
+│   └── tsuite.bash             # Bash completion for all suite commands
 ├── 01-termux-base.sh           # Stage 01: System repos, core packages, Zsh, SSH
 ├── 02-termux-essentials.sh     # Stage 02: Compilers, Python, Rust, Go, tools
 ├── 03-termux-node-toolchain.sh # Stage 03: Node.js LTS, isolated npm, pnpm, Yarn
@@ -482,7 +511,7 @@ Termux-Dev/
 ├── 06-termux-android-sdk.sh    # Stage 06: Android SDK, NDK, TermuxVoid, Java
 ├── setup.sh                    # Master orchestrator (TUI & CLI interface)
 ├── install.sh                  # One-line curl bootstrap installer
-├── test-suite.sh               # Ruthless 26-point stress & verification suite
+├── test-suite.sh               # Ruthless 30-point stress & verification suite
 ├── AGENTS.md                   # Antigravity workspace rules & guidelines
 ├── LICENSE                     # Apache 2.0 Open Source License
 ├── .shellcheckrc               # ShellCheck linting configuration
