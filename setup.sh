@@ -306,30 +306,120 @@ verify_all() {
     printf '\n'
 }
 
+build_apk_interactive() {
+    printf '\n%s=======================================================%s\n' "$BOLD$CYAN" "$NC"
+    printf '%s   ⚡ Standalone Android APK Builder (Zero-Gradle)     %s\n' "$BOLD$GREEN" "$NC"
+    printf '%s=======================================================%s\n\n' "$BOLD$CYAN" "$NC"
+
+    local apk_cmd="$SETUP_DIR/bin/termux-apk-build"
+    if [[ ! -x "$apk_cmd" ]]; then
+        if command -v termux-apk-build >/dev/null 2>&1; then
+            apk_cmd="$(command -v termux-apk-build)"
+        else
+            error "termux-apk-build executable not found."
+            return 1
+        fi
+    fi
+
+    printf 'Enter project or source directory [default: current (%s)]:\n' "$(pwd)"
+    read -rp "Project directory: " input_proj
+    local proj_dir="${input_proj:-$(pwd)}"
+
+    if [[ ! -d "$proj_dir" ]]; then
+        error "Directory does not exist: $proj_dir"
+        return 1
+    fi
+
+    printf 'Enter output APK filename [default: app-signed.apk]:\n'
+    read -rp "Output APK: " input_out
+    local out_apk="${input_out:-app-signed.apk}"
+
+    printf 'Install to connected device via ADB after compilation? [y/N]: '
+    read -rp "" input_install
+    local install_args=()
+    if [[ "$input_install" =~ ^[Yy] ]]; then
+        install_args=("-i")
+    fi
+
+    info "Starting APK synthesis with termux-apk-build..."
+    "$apk_cmd" -p "$proj_dir" -o "$out_apk" "${install_args[@]}"
+}
+
 show_dialog_tui() {
     local choice
+    local term_lines term_cols win_height win_width list_height
+    term_lines=$(tput lines 2>/dev/null || echo 24)
+    term_cols=$(tput cols 2>/dev/null || echo 80)
+
+    # Adaptive geometry for mobile portrait/landscape screens
+    win_height=$(( term_lines > 26 ? 24 : term_lines - 2 ))
+    win_width=$(( term_cols > 82 ? 78 : term_cols - 2 ))
+    (( win_width < 45 )) && win_width=45
+    list_height=$(( win_height - 9 ))
+    (( list_height < 5 )) && list_height=5
+
+    local ram_free disk_free
+    ram_free="$(free -h 2>/dev/null | awk '/Mem:/ {print $7}' || echo 'N/A')"
+    disk_free="$(df -h "${PREFIX:-/data/data/com.termux/files/usr}" 2>/dev/null | awk 'NR==2 {print $4}' || echo 'N/A')"
+    local backtitle="Termux-Dev ARM64 Workstation  │  RAM: ${ram_free} Avail  │  Disk: ${disk_free} Free"
+
+    # Generate modern Obsidian / Neon dialog theme
+    local theme_file="${TMPDIR:-$PREFIX/tmp}/dialogrc.$$"
+    cat > "$theme_file" <<'THEME_EOF'
+use_shadow = OFF
+use_colors = ON
+screen_color = (CYAN,BLACK,ON)
+dialog_color = (WHITE,BLACK,OFF)
+title_color = (CYAN,BLACK,ON)
+border_color = (CYAN,BLACK,ON)
+button_active_color = (BLACK,CYAN,ON)
+button_inactive_color = (WHITE,BLACK,OFF)
+button_key_active_color = (BLACK,YELLOW,ON)
+button_key_inactive_color = (YELLOW,BLACK,OFF)
+button_label_active_color = (BLACK,CYAN,ON)
+button_label_inactive_color = (WHITE,BLACK,OFF)
+inputbox_color = (WHITE,BLACK,OFF)
+inputbox_border_color = (CYAN,BLACK,ON)
+menubox_color = (WHITE,BLACK,OFF)
+menubox_border_color = (BLUE,BLACK,ON)
+item_color = (WHITE,BLACK,OFF)
+item_selected_color = (BLACK,CYAN,ON)
+tag_color = (YELLOW,BLACK,ON)
+tag_selected_color = (BLACK,YELLOW,ON)
+tag_key_color = (YELLOW,BLACK,ON)
+tag_key_selected_color = (BLACK,YELLOW,ON)
+check_color = (WHITE,BLACK,OFF)
+check_selected_color = (BLACK,CYAN,ON)
+uarrow_color = (GREEN,BLACK,ON)
+darrow_color = (GREEN,BLACK,ON)
+THEME_EOF
+
     while true; do
         choice=$(dialog --clear \
-            --backtitle "Termux Provisioning & AI Suite Manager (ARM64)" \
-            --title " Main Interactive Menu " \
+            --rc-file "$theme_file" \
+            --colors \
+            --backtitle "$backtitle" \
+            --title " \Zb\Z6Termux Developer Suite\Zn " \
             --cancel-label "Exit" \
-            --menu "Select a stage or action using Up/Down arrow keys and Enter:" 22 72 12 \
-            "1" "Run Full Suite (Stages 01 -> 06)" \
-            "2" "Stage 01: Base System, Repos & Zsh" \
-            "3" "Stage 02: Essentials & Dev Toolchains" \
-            "4" "Stage 03: Node.js & Package Managers (ARM64)" \
-            "5" "Stage 04: AI CLI Suite (agy, opencode, codex, gemini, copilot)" \
-            "6" "Stage 05: AI Environment & Keys Template (~/.ai-env)" \
-            "7" "Stage 06: Android SDK, NDK & TermuxVoid Toolchains" \
-            "8" "Verify All Installed Tools" \
-            "9" "Run Ruthless Stress & Verification Test Suite" \
-            "10" "Clean Package Cache, Temp Files & Locks" \
-            "11" "Prune Unused NDK Sysroots (Save ~600MB)" \
-            "12" "Tune Device: Disable Phantom Process Killer" \
-            "13" "Install Local Git Pre-Commit Hook" \
-            "14" "System Doctor: Health & Stability Diagnostics" \
-            "15" "Configure Developer Extra-Keys (Fast Coding Bar)" \
-            "0" "Exit" \
+            --menu "Select an action with \Zb\Z3Up/Down\Zn and press \Zb\Z3Enter\Zn:" \
+            "$win_height" "$win_width" "$list_height" \
+            "1"  "▶  Run Complete Pipeline (Stages 01 -> 06)" \
+            "2"  "📦 Stage 01: Base System, Repos & Zsh" \
+            "3"  "⚙️  Stage 02: Essentials & Dev Toolchains" \
+            "4"  "🌐 Stage 03: Node.js 24 & Package Managers" \
+            "5"  "🤖 Stage 04: AI CLI Suite (5 Assistants)" \
+            "6"  "🔑 Stage 05: Private AI Environment (~/.ai-env)" \
+            "7"  "📱 Stage 06: Android SDK, NDK & OpenJDK 21" \
+            "8"  "⚡ Build Android APK (Sub-Second Engine)" \
+            "9"  "✓  Verify All Installed Tools & CLIs" \
+            "10" "🧪 Run Ruthless 30-Point Stress Test Suite" \
+            "11" "🩺 System Doctor: Health & Diagnostics" \
+            "12" "⌨️  Configure Developer Extra-Keys" \
+            "13" "🔋 Disable Phantom Process Killer" \
+            "14" "✂️  Prune Unused NDK Sysroots (Save ~600MB)" \
+            "15" "🧹 Deep Clean Cache, Temp Files & Locks" \
+            "16" "🛡️  Install Local Git Pre-Commit Hook" \
+            "0"  "🚪 Exit to Shell" \
             2>&1 >/dev/tty) || break
 
         clear
@@ -349,20 +439,32 @@ show_dialog_tui() {
             5) run_stage "04-termux-ai-cli.sh" "Stage 04: AI CLI Suite" ;;
             6) run_stage "05-ai-env.sh" "Stage 05: AI Environment & Credentials" ;;
             7) run_stage "06-termux-android-sdk.sh" "Stage 06: Android SDK & NDK Toolchain" ;;
-            8) verify_all ;;
-            9) bash "$SETUP_DIR/test-suite.sh" ;;
-            10) clean_system ;;
-            11) prune_ndk ;;
-            12) tune_device ;;
-            13) install_git_hooks ;;
-            14) doctor_system ;;
-            15) tune_extra_keys ;;
+            8)
+                local p_dir o_apk
+                p_dir=$(dialog --clear --rc-file "$theme_file" --title " Project Directory " \
+                    --inputbox "Enter path to Android project / directory:" 10 60 "$(pwd)" 2>&1 >/dev/tty) || p_dir=""
+                if [[ -n "$p_dir" ]]; then
+                    o_apk=$(dialog --clear --rc-file "$theme_file" --title " Output APK " \
+                        --inputbox "Enter output APK filename:" 10 60 "app-signed.apk" 2>&1 >/dev/tty) || o_apk="app-signed.apk"
+                    clear
+                    "$SETUP_DIR/bin/termux-apk-build" -p "$p_dir" -o "${o_apk:-app-signed.apk}"
+                fi
+                ;;
+            9) verify_all ;;
+            10) bash "$SETUP_DIR/test-suite.sh" ;;
+            11) doctor_system ;;
+            12) tune_extra_keys ;;
+            13) tune_device ;;
+            14) prune_ndk ;;
+            15) clean_system ;;
+            16) install_git_hooks ;;
             0) break ;;
         esac
 
         printf '\n%sPress Enter to return to the interactive menu...%s' "$BOLD$CYAN" "$NC"
         read -r
     done
+    rm -f "$theme_file" 2>/dev/null || true
     clear 2>/dev/null || true
 }
 
@@ -372,60 +474,86 @@ show_menu() {
         return
     fi
 
-    clear 2>/dev/null || true
-    printf '%s=======================================================%s\n' "$BOLD$CYAN" "$NC"
-    printf '%s       Termux Provisioning & AI Suite Manager          %s\n' "$BOLD$GREEN" "$NC"
-    printf '%s=======================================================%s\n\n' "$BOLD$CYAN" "$NC"
-    printf '  1) Run Full Suite (Stages 01 -> 06)\n'
-    printf '  2) Stage 01: Base System, Repos & Zsh\n'
-    printf '  3) Stage 02: Essentials & Dev Toolchains\n'
-    printf '  4) Stage 03: Node.js & Package Managers (ARM64)\n'
-    printf '  5) Stage 04: AI CLI Suite (agy, opencode, codex, gemini, copilot)\n'
-    printf '  6) Stage 05: AI Environment & Keys Configuration (~/.ai-env)\n'
-    printf '  7) Stage 06: Android SDK, NDK & TermuxVoid Toolchains\n'
-    printf '  8) Verify All Installed Tools\n'
-    printf '  9) Run Ruthless Stress & Verification Test Suite\n'
-    printf ' 10) Clean Package Cache, Temp Files & Locks\n'
-    printf ' 11) Prune Unused NDK Sysroots (Save ~600MB)\n'
-    printf ' 12) Tune Device: Disable Phantom Process Killer\n'
-    printf ' 13) Install Local Git Pre-Commit Hook\n'
-    printf ' 14) System Doctor: Health & Stability Diagnostics\n'
-    printf ' 15) Configure Developer Extra-Keys (Fast Coding Bar)\n'
-    printf '  0) Exit\n\n'
+    local ram_free disk_free
+    while true; do
+        ram_free="$(free -h 2>/dev/null | awk '/Mem:/ {print $7}' || echo 'N/A')"
+        disk_free="$(df -h "${PREFIX:-/data/data/com.termux/files/usr}" 2>/dev/null | awk 'NR==2 {print $4}' || echo 'N/A')"
 
-    read -rp "Select an option [0-15]: " choice
-    case "$choice" in
-        1)
-            run_stage "01-termux-base.sh" "Stage 01: Termux Base Setup"
-            run_stage "02-termux-essentials.sh" "Stage 02: Essentials & Dev Tools"
-            run_stage "03-termux-node-toolchain.sh" "Stage 03: Node.js Toolchain"
-            run_stage "04-termux-ai-cli.sh" "Stage 04: AI CLI Suite"
-            run_stage "05-ai-env.sh" "Stage 05: AI Environment & Credentials"
-            run_stage "06-termux-android-sdk.sh" "Stage 06: Android SDK & NDK Toolchain"
-            verify_all
-            ;;
-        2) run_stage "01-termux-base.sh" "Stage 01: Termux Base Setup" ;;
-        3) run_stage "02-termux-essentials.sh" "Stage 02: Essentials & Dev Tools" ;;
-        4) run_stage "03-termux-node-toolchain.sh" "Stage 03: Node.js Toolchain" ;;
-        5) run_stage "04-termux-ai-cli.sh" "Stage 04: AI CLI Suite" ;;
-        6) run_stage "05-ai-env.sh" "Stage 05: AI Environment & Credentials" ;;
-        7) run_stage "06-termux-android-sdk.sh" "Stage 06: Android SDK & NDK Toolchain" ;;
-        8) verify_all ;;
-        9) bash "$SETUP_DIR/test-suite.sh" ;;
-        10) clean_system ;;
-        11) prune_ndk ;;
-        12) tune_device ;;
-        13) install_git_hooks ;;
-        14) doctor_system ;;
-        15) tune_extra_keys ;;
-        0|q|Q)
-            info "Exiting."
-            exit 0
-            ;;
-        *)
-            warn "Invalid selection: $choice"
-            ;;
-    esac
+        clear 2>/dev/null || true
+        printf '%s╭───────────────────────────────────────────────────────────────────╮%s\n' "$CYAN" "$NC"
+        printf '%s│%s   🚀 \033[1;37mTermux Developer & AI Suite\033[0m \033[1;36m(ARM64 / aarch64)\033[0m              %s│%s\n' "$CYAN" "$BOLD" "$CYAN" "$NC"
+        printf '%s│%s   Arch: \033[1;33maarch64\033[0m │ RAM Avail: \033[1;32m%-7s\033[0m │ Free Disk: \033[1;32m%-8s\033[0m    %s│%s\n' "$CYAN" "$NC" "$ram_free" "$disk_free" "$CYAN" "$NC"
+        printf '%s╰───────────────────────────────────────────────────────────────────╯%s\n\n' "$CYAN" "$NC"
+
+        printf ' %s%s┌── [1] COMPLETE WORKSTATION PIPELINE ────────────────────────────┐%s\n' "$BOLD" "$BLUE" "$NC"
+        printf ' %s│%s  %s[1/A]%s  %s▶%s  Run Complete Workstation Setup (Stages 01 -> 06)      %s│%s\n' "$BLUE" "$NC" "$BOLD$YELLOW" "$NC" "$GREEN$BOLD" "$NC" "$BLUE" "$NC"
+        printf ' %s└─── Modular Setup Stages ─────────────────────────────────────────┘%s\n' "$BLUE" "$NC"
+        printf '   %s[2/B]%s  📦 Stage 01: Base System, Repositories & Zsh Shell\n' "$BOLD$CYAN" "$NC"
+        printf '   %s[3/E]%s  ⚙️  Stage 02: Build Tools, Compilers & Dev Essentials\n' "$BOLD$CYAN" "$NC"
+        printf '   %s[4/N]%s  🌐 Stage 03: Node.js 24 LTS & Package Managers (ARM64)\n' "$BOLD$CYAN" "$NC"
+        printf '   %s[5/I]%s  🤖 Stage 04: AI Coding Assistant Suite (5 CLIs)\n' "$BOLD$CYAN" "$NC"
+        printf '   %s[6/S]%s  🔑 Stage 05: Private AI Environment & Credentials (~/.ai-env)\n' "$BOLD$CYAN" "$NC"
+        printf '   %s[7/D]%s  📱 Stage 06: Android SDK, NDK (Clang 21) & OpenJDK 21\n\n' "$BOLD$CYAN" "$NC"
+
+        printf ' %s%s┌── [2] APPLICATION COMPILATION & VERIFICATION ───────────────────┐%s\n' "$BOLD" "$GREEN" "$NC"
+        printf '   %s[8/K]%s  ⚡ Build Android APK (Sub-Second Zero-Gradle Engine)\n' "$BOLD$GREEN" "$NC"
+        printf '   %s[9/V]%s  ✓  Verify All Installed Compilers, SDKs & Toolchains\n' "$BOLD$GREEN" "$NC"
+        printf '  %s[10/T]%s  🧪 Run Ruthless 30-Point Stress & Verification Suite\n' "$BOLD$GREEN" "$NC"
+        printf '  %s[11/H]%s  🩺 System Doctor: Hardware, RAM & Stability Diagnostics\n' "$BOLD$GREEN" "$NC"
+        printf ' %s└───────────────────────────────────────────────────────────────────┘%s\n\n' "$GREEN" "$NC"
+
+        printf ' %s%s┌── [3] SYSTEM TUNING, STORAGE & REPOSITORY HYGIENE ───────────────┐%s\n' "$BOLD" "$YELLOW" "$NC"
+        printf '  %s[12/X]%s  ⌨️  Configure Developer Extra-Keys (Fast Touch Coding Bar)\n' "$BOLD$YELLOW" "$NC"
+        printf '  %s[13/P]%s  🔋 Disable Phantom Process Killer (Android 14/15/16 PPK)\n' "$BOLD$YELLOW" "$NC"
+        printf '  %s[14/R]%s  ✂️  Prune Unused NDK Sysroots (Frees ~600MB Storage)\n' "$BOLD$YELLOW" "$NC"
+        printf '  %s[15/C]%s  🧹 Deep Clean Cache, Temp Files & Concurrency Locks\n' "$BOLD$YELLOW" "$NC"
+        printf '  %s[16/G]%s  🛡️  Install Local Git Pre-Commit Security Lint Hook\n' "$BOLD$YELLOW" "$NC"
+        printf ' %s└───────────────────────────────────────────────────────────────────┘%s\n\n' "$YELLOW" "$NC"
+
+        printf '  %s[0/Q]%s  🚪 Exit to Shell\n\n' "$BOLD$RED" "$NC"
+
+        printf '%sSelect an option [1-16, A-Z, or 0/Q to exit]: %s' "$BOLD$CYAN" "$NC"
+        read -rp "" raw_choice
+        local choice
+        choice="$(echo "${raw_choice:-}" | tr '[:upper:]' '[:lower:]' | tr -d '[:space:]')"
+
+        case "$choice" in
+            1|a)
+                run_stage "01-termux-base.sh" "Stage 01: Termux Base Setup"
+                run_stage "02-termux-essentials.sh" "Stage 02: Essentials & Dev Tools"
+                run_stage "03-termux-node-toolchain.sh" "Stage 03: Node.js Toolchain"
+                run_stage "04-termux-ai-cli.sh" "Stage 04: AI CLI Suite"
+                run_stage "05-ai-env.sh" "Stage 05: AI Environment & Credentials"
+                run_stage "06-termux-android-sdk.sh" "Stage 06: Android SDK & NDK Toolchain"
+                verify_all
+                ;;
+            2|b) run_stage "01-termux-base.sh" "Stage 01: Termux Base Setup" ;;
+            3|e) run_stage "02-termux-essentials.sh" "Stage 02: Essentials & Dev Tools" ;;
+            4|n) run_stage "03-termux-node-toolchain.sh" "Stage 03: Node.js Toolchain" ;;
+            5|i) run_stage "04-termux-ai-cli.sh" "Stage 04: AI CLI Suite" ;;
+            6|s) run_stage "05-ai-env.sh" "Stage 05: AI Environment & Credentials" ;;
+            7|d) run_stage "06-termux-android-sdk.sh" "Stage 06: Android SDK & NDK Toolchain" ;;
+            8|k) build_apk_interactive ;;
+            9|v) verify_all ;;
+            10|t) bash "$SETUP_DIR/test-suite.sh" ;;
+            11|h) doctor_system ;;
+            12|x) tune_extra_keys ;;
+            13|p) tune_device ;;
+            14|r) prune_ndk ;;
+            15|c) clean_system ;;
+            16|g) install_git_hooks ;;
+            0|q)
+                info "Exiting."
+                exit 0
+                ;;
+            *)
+                warn "Invalid selection: $raw_choice"
+                ;;
+        esac
+
+        printf '\n%sPress Enter to return to the interactive menu...%s' "$BOLD$CYAN" "$NC"
+        read -r
+    done
 }
 
 # CLI Argument parsing
@@ -457,6 +585,9 @@ if [[ $# -gt 0 ]]; then
             ;;
         --android)
             run_stage "06-termux-android-sdk.sh" "Stage 06: Android SDK & NDK Toolchain"
+            ;;
+        --apk|--build-apk)
+            build_apk_interactive
             ;;
         --verify)
             verify_all
@@ -492,6 +623,7 @@ if [[ $# -gt 0 ]]; then
             printf '  --ai             Execute Stage 04: AI CLI Suite\n'
             printf '  --ai-env         Execute Stage 05: AI Environment Setup\n'
             printf '  --android        Execute Stage 06: Android SDK & NDK Setup\n'
+            printf '  --apk            Build Android APK interactively with zero Gradle\n'
             printf '  --verify         Verify all installed tools\n'
             printf '  --doctor         Run Termux system health & environment diagnostics\n'
             printf '  --test           Run ruthless stress & verification test suite\n'
