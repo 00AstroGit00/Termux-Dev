@@ -70,7 +70,9 @@ fi
 info "Installing executable CLI launchers (termux-suite & tsuite)..."
 mkdir -p "$BIN_DIR" "$LOCAL_BIN"
 
-cat > "$SUITE_DIR/bin/termux-suite" <<'EOF'
+if [[ ! -f "$SUITE_DIR/bin/termux-suite" ]]; then
+    mkdir -p "$SUITE_DIR/bin"
+    cat > "$SUITE_DIR/bin/termux-suite" <<'EOF'
 #!/data/data/com.termux/files/usr/bin/bash
 set -Eeuo pipefail
 SUITE_DIR="${TERMUX_SUITE_DIR:-}"
@@ -93,6 +95,7 @@ if [[ -z "$SUITE_DIR" || ! -f "$SUITE_DIR/setup.sh" ]]; then
 fi
 exec bash "$SUITE_DIR/setup.sh" "$@"
 EOF
+fi
 
 chmod 755 "$SUITE_DIR/bin/termux-suite"
 cp -f "$SUITE_DIR/bin/termux-suite" "$BIN_DIR/termux-suite"

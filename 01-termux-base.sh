@@ -13,7 +13,7 @@ IFS=$'\n\t'
 INSTALL_ROOT_REPO="${INSTALL_ROOT_REPO:-1}"
 INSTALL_X11_REPO="${INSTALL_X11_REPO:-1}"
 INSTALL_TUR_REPO="${INSTALL_TUR_REPO:-1}"
-INSTALL_TERMUXVOID="${INSTALL_TERMUXVOID:-0}"
+INSTALL_TERMUXVOID="${INSTALL_TERMUXVOID:-1}"
 INSTALL_ZSH="${INSTALL_ZSH:-1}"
 INSTALL_SSH="${INSTALL_SSH:-1}"
 AUTO_CHANGE_REPO="${AUTO_CHANGE_REPO:-0}"
@@ -186,6 +186,12 @@ run_required "Installing core development and CLI packages" pkg install -y \
 # Optional TermuxVoid
 # -----------------------------
 install_termuxvoid() {
+    local list_file="${PREFIX:-/data/data/com.termux/files/usr}/etc/apt/sources.list.d/termuxvoid.list"
+    if [[ -f "$list_file" ]] && command -v tvpkg >/dev/null 2>&1; then
+        info "TermuxVoid repository and tvpkg are already configured; skipping remote installer."
+        return 0
+    fi
+
     local url="https://raw.githubusercontent.com/termuxvoid/repo/main/install.sh"
     local installer="$WORKDIR/termuxvoid-install.sh"
 

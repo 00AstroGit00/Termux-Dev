@@ -177,6 +177,7 @@ verify_all() {
     check_cmd "Android ADB" adb
     check_cmd "AAPT2" aapt2
     check_cmd "APK Signer" apksigner
+    check_cmd "Zipalign" zipalign
     check_cmd "DEX Compiler (d8)" d8
     check_cmd "SDK Manager" sdkmanager
     check_cmd "Android CLI" android
