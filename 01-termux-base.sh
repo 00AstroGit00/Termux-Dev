@@ -84,7 +84,7 @@ trap on_error ERR
 # Termux validation
 # -----------------------------
 [[ -n "${PREFIX:-}" ]] || die "PREFIX is not set. This does not look like a Termux environment."
-[[ -n "${TERMUX_VERSION:-}" ]] || die "TERMUX_VERSION is not set. Run this script from Termux."
+TERMUX_VERSION="${TERMUX_VERSION:-unknown}"
 [[ -x "$PREFIX/bin/pkg" ]] || die "Termux package manager was not found at $PREFIX/bin/pkg."
 
 # Current Termux is apt/dpkg based in the normal setup.
