@@ -209,6 +209,18 @@ doctor_system() {
         printf '  Extra keys: %sDefault (run setup.sh --tune-keys to enhance)%s\n' "$YELLOW" "$NC"
     fi
     printf '\n'
+
+    # Kernel & Android Platform
+    printf '%s[Kernel Architecture & Android Storage]%s\n' "$BOLD$YELLOW" "$NC"
+    local page_size
+    page_size="$(grep -m1 -i "KernelPageSize" /proc/self/smaps 2>/dev/null | awk '{print $2, $3}' || echo '4 kB')"
+    printf '  Kernel page size: %s%s%s (16KB Android 15+ compatible)\n' "$BOLD$GREEN" "$page_size" "$NC"
+    if [[ -d "$HOME/storage" ]]; then
+        printf '  Android storage:  %sConfigured (~/storage accessible)%s\n' "$GREEN" "$NC"
+    else
+        printf '  Android storage:  %sNot configured (run "termux-setup-storage")%s\n' "$YELLOW" "$NC"
+    fi
+    printf '\n'
 }
 
 tune_extra_keys() {
@@ -510,13 +522,19 @@ THEME_EOF
     while true; do
         ram_free="$(free -h 2>/dev/null | awk '/Mem:/ {print $7}' || echo 'N/A')"
         disk_free="$(df -h "${PREFIX:-/data/data/com.termux/files/usr}" 2>/dev/null | awk 'NR==2 {print $4}' || echo 'N/A')"
-        local bat_str=""
+        local bat_str="" git_str=""
         if command -v termux-battery-status >/dev/null 2>&1; then
             local b_pct
             b_pct="$(termux-battery-status 2>/dev/null | jq -r '.percentage // empty' 2>/dev/null || true)"
             [[ -n "$b_pct" ]] && bat_str="  │  Bat: ${b_pct}%"
         fi
-        backtitle="Termux-Dev ARM64 Workstation  │  RAM: ${ram_free} Avail  │  Disk: ${disk_free} Free${bat_str}"
+        if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+            local g_branch g_dirty
+            g_branch="$(git branch --show-current 2>/dev/null || echo 'git')"
+            g_dirty="$(git status --porcelain 2>/dev/null | wc -l | tr -d ' ')"
+            git_str="  │  Git: ${g_branch} (${g_dirty}*)"
+        fi
+        backtitle="Termux-Dev ARM64 Workstation  │  RAM: ${ram_free} Avail  │  Disk: ${disk_free} Free${bat_str}${git_str}"
 
         local s1_d s2_d s3_d s4_d s5_d s6_d
         get_stage_status 1 && s1_d="\Zb\Z2[✓]\Zn" || s1_d="\Zb\Z1[○]\Zn"
@@ -623,13 +641,19 @@ THEME_EOF
 }
 
 show_menu_ansi() {
-    local ram_free disk_free bat_pct
+    local ram_free disk_free bat_pct g_branch g_dirty
     while true; do
         ram_free="$(free -h 2>/dev/null | awk '/Mem:/ {print $7}' || echo 'N/A')"
         disk_free="$(df -h "${PREFIX:-/data/data/com.termux/files/usr}" 2>/dev/null | awk 'NR==2 {print $4}' || echo 'N/A')"
         bat_pct=""
         if command -v termux-battery-status >/dev/null 2>&1; then
             bat_pct="$(termux-battery-status 2>/dev/null | jq -r '.percentage // empty' 2>/dev/null || true)"
+        fi
+        g_branch=""
+        g_dirty=""
+        if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+            g_branch="$(git branch --show-current 2>/dev/null || echo 'git')"
+            g_dirty="$(git status --porcelain 2>/dev/null | wc -l | tr -d ' ')"
         fi
 
         local s1_a s2_a s3_a s4_a s5_a s6_a
@@ -643,7 +667,9 @@ show_menu_ansi() {
         clear 2>/dev/null || true
         printf '%s╭───────────────────────────────────────────────────────────────────╮%s\n' "$CYAN" "$NC"
         printf '%s│%s   🚀 \033[1;37mTermux Developer & AI Suite\033[0m \033[1;36m(ARM64 / aarch64)\033[0m              %s│%s\n' "$CYAN" "$BOLD" "$CYAN" "$NC"
-        if [[ -n "$bat_pct" ]]; then
+        if [[ -n "$g_branch" && -n "$bat_pct" ]]; then
+            printf '%s│%s   Arch: \033[1;33marm64\033[0m │ RAM: \033[1;32m%-5s\033[0m │ Disk: \033[1;32m%-6s\033[0m │ Bat: \033[1;32m%-3s\033[0m │ Git: \033[1;36m%s\033[0m (%s*)  %s│%s\n' "$CYAN" "$NC" "$ram_free" "$disk_free" "${bat_pct}%" "$g_branch" "$g_dirty" "$CYAN" "$NC"
+        elif [[ -n "$bat_pct" ]]; then
             printf '%s│%s   Arch: \033[1;33maarch64\033[0m │ RAM: \033[1;32m%-6s\033[0m │ Disk: \033[1;32m%-7s\033[0m │ Bat: \033[1;32m%-4s\033[0m   %s│%s\n' "$CYAN" "$NC" "$ram_free" "$disk_free" "${bat_pct}%" "$CYAN" "$NC"
         else
             printf '%s│%s   Arch: \033[1;33maarch64\033[0m │ RAM Avail: \033[1;32m%-7s\033[0m │ Free Disk: \033[1;32m%-8s\033[0m    %s│%s\n' "$CYAN" "$NC" "$ram_free" "$disk_free" "$CYAN" "$NC"
