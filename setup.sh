@@ -35,8 +35,20 @@ NC=$'\033[0m'
 info()    { printf '%s[INFO]%s %s\n' "$BLUE" "$NC" "$*"; }
 success() { printf '%s[SUCCESS]%s %s\n' "$GREEN" "$NC" "$*"; }
 warn()    { printf '%s[WARNING]%s %s\n' "$YELLOW" "$NC" "$*" >&2; }
-error()   { printf '%s[ERROR]%s %s\n' "$RED" "$NC" "$*" >&2; }
 die()     { error "$*"; exit 1; }
+
+notify_user() {
+    local title="$1"
+    local message="$2"
+    if command -v termux-notification >/dev/null 2>&1; then
+        termux-notification \
+            --id "termux-dev" \
+            --title "$title" \
+            --content "$message" \
+            --priority high \
+            2>/dev/null || true
+    fi
+}
 
 prune_ndk() {
     local ndk_lib="${PREFIX:-/data/data/com.termux/files/usr}/opt/android-sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-arm64/sysroot/usr/lib"
@@ -104,6 +116,17 @@ echo "Pre-commit checks passed cleanly."
 HOOK_EOF
     chmod +x "$hook_dir/pre-commit"
     success "Pre-commit hook installed at $hook_dir/pre-commit."
+
+    # Install/refresh shell completions
+    local zsh_site="${PREFIX:-/data/data/com.termux/files/usr}/share/zsh/site-functions"
+    local bash_comp="${PREFIX:-/data/data/com.termux/files/usr}/etc/bash_completion.d"
+    mkdir -p "$zsh_site" "$bash_comp"
+    if [[ -d "$SETUP_DIR/completions" ]]; then
+        [[ -f "$SETUP_DIR/completions/_tsuite" ]] && cp -f "$SETUP_DIR/completions/_tsuite" "$zsh_site/_tsuite" && cp -f "$SETUP_DIR/completions/_tsuite" "$zsh_site/_termux-suite"
+        [[ -f "$SETUP_DIR/completions/_termux-apk-build" ]] && cp -f "$SETUP_DIR/completions/_termux-apk-build" "$zsh_site/_termux-apk-build" && cp -f "$SETUP_DIR/completions/_termux-apk-build" "$zsh_site/_apk-build"
+        [[ -f "$SETUP_DIR/completions/tsuite.bash" ]] && cp -f "$SETUP_DIR/completions/tsuite.bash" "$bash_comp/tsuite"
+        success "Shell completions refreshed for Zsh and Bash."
+    fi
 }
 
 clean_system() {
@@ -345,12 +368,22 @@ build_apk_interactive() {
     "$apk_cmd" -p "$proj_dir" -o "$out_apk" "${install_args[@]}"
 }
 
+get_stage_status() {
+    local stage_num="$1"
+    case "$stage_num" in
+        1) command -v zsh >/dev/null 2>&1 ;;
+        2) command -v clang >/dev/null 2>&1 && command -v git >/dev/null 2>&1 ;;
+        3) command -v node >/dev/null 2>&1 && command -v pnpm >/dev/null 2>&1 ;;
+        4) command -v agy >/dev/null 2>&1 && command -v opencode >/dev/null 2>&1 ;;
+        5) [[ -s "$HOME/.ai-env" ]] ;;
+        6) [[ -d "${PREFIX:-/data/data/com.termux/files/usr}/opt/android-sdk" ]] && command -v java >/dev/null 2>&1 ;;
+        *) return 1 ;;
+    esac
+}
+
 show_dialog_tui() {
     local choice exit_code
-    local ram_free disk_free
-    ram_free="$(free -h 2>/dev/null | awk '/Mem:/ {print $7}' || echo 'N/A')"
-    disk_free="$(df -h "${PREFIX:-/data/data/com.termux/files/usr}" 2>/dev/null | awk 'NR==2 {print $4}' || echo 'N/A')"
-    local backtitle="Termux-Dev ARM64 Workstation  │  RAM: ${ram_free} Avail  │  Disk: ${disk_free} Free"
+    local ram_free disk_free backtitle
 
     # Generate modern Obsidian / Neon dialog theme
     local theme_file="${TMPDIR:-$PREFIX/tmp}/dialogrc.$$"
@@ -391,6 +424,18 @@ THEME_EOF
     fi
 
     while true; do
+        ram_free="$(free -h 2>/dev/null | awk '/Mem:/ {print $7}' || echo 'N/A')"
+        disk_free="$(df -h "${PREFIX:-/data/data/com.termux/files/usr}" 2>/dev/null | awk 'NR==2 {print $4}' || echo 'N/A')"
+        backtitle="Termux-Dev ARM64 Workstation  │  RAM: ${ram_free} Avail  │  Disk: ${disk_free} Free"
+
+        local s1_d s2_d s3_d s4_d s5_d s6_d
+        get_stage_status 1 && s1_d="\Zb\Z2[✓]\Zn" || s1_d="\Zb\Z1[○]\Zn"
+        get_stage_status 2 && s2_d="\Zb\Z2[✓]\Zn" || s2_d="\Zb\Z1[○]\Zn"
+        get_stage_status 3 && s3_d="\Zb\Z2[✓]\Zn" || s3_d="\Zb\Z1[○]\Zn"
+        get_stage_status 4 && s4_d="\Zb\Z2[✓]\Zn" || s4_d="\Zb\Z1[○]\Zn"
+        get_stage_status 5 && s5_d="\Zb\Z2[✓]\Zn" || s5_d="\Zb\Z1[○]\Zn"
+        get_stage_status 6 && s6_d="\Zb\Z2[✓]\Zn" || s6_d="\Zb\Z1[○]\Zn"
+
         choice=$(DIALOGRC="$theme_file" dialog --stdout --clear \
             --colors \
             --backtitle "$backtitle" \
@@ -399,12 +444,12 @@ THEME_EOF
             --menu "Select an action with \Zb\Z3Up/Down\Zn and press \Zb\Z3Enter\Zn:" \
             0 0 0 \
             "1"  "▶  Run Complete Pipeline (Stages 01 -> 06)" \
-            "2"  "📦 Stage 01: Base System, Repos & Zsh" \
-            "3"  "⚙️  Stage 02: Essentials & Dev Toolchains" \
-            "4"  "🌐 Stage 03: Node.js 24 & Package Managers" \
-            "5"  "🤖 Stage 04: AI CLI Suite (5 Assistants)" \
-            "6"  "🔑 Stage 05: Private AI Environment (~/.ai-env)" \
-            "7"  "📱 Stage 06: Android SDK, NDK & OpenJDK 21" \
+            "2"  "$s1_d Stage 01: Base System, Repos & Zsh" \
+            "3"  "$s2_d Stage 02: Essentials & Dev Toolchains" \
+            "4"  "$s3_d Stage 03: Node.js 24 & Package Managers" \
+            "5"  "$s4_d Stage 04: AI CLI Suite (5 Assistants)" \
+            "6"  "$s5_d Stage 05: Private AI Environment (~/.ai-env)" \
+            "7"  "$s6_d Stage 06: Android SDK, NDK & OpenJDK 21" \
             "8"  "⚡ Build Android APK (Sub-Second Engine)" \
             "9"  "✓  Verify All Installed Tools & CLIs" \
             "10" "🧪 Run Ruthless 30-Point Stress Test Suite" \
@@ -474,6 +519,14 @@ show_menu_ansi() {
         ram_free="$(free -h 2>/dev/null | awk '/Mem:/ {print $7}' || echo 'N/A')"
         disk_free="$(df -h "${PREFIX:-/data/data/com.termux/files/usr}" 2>/dev/null | awk 'NR==2 {print $4}' || echo 'N/A')"
 
+        local s1_a s2_a s3_a s4_a s5_a s6_a
+        get_stage_status 1 && s1_a="${GREEN}${BOLD}[✓]${NC}" || s1_a="${YELLOW}[○]${NC}"
+        get_stage_status 2 && s2_a="${GREEN}${BOLD}[✓]${NC}" || s2_a="${YELLOW}[○]${NC}"
+        get_stage_status 3 && s3_a="${GREEN}${BOLD}[✓]${NC}" || s3_a="${YELLOW}[○]${NC}"
+        get_stage_status 4 && s4_a="${GREEN}${BOLD}[✓]${NC}" || s4_a="${YELLOW}[○]${NC}"
+        get_stage_status 5 && s5_a="${GREEN}${BOLD}[✓]${NC}" || s5_a="${YELLOW}[○]${NC}"
+        get_stage_status 6 && s6_a="${GREEN}${BOLD}[✓]${NC}" || s6_a="${YELLOW}[○]${NC}"
+
         clear 2>/dev/null || true
         printf '%s╭───────────────────────────────────────────────────────────────────╮%s\n' "$CYAN" "$NC"
         printf '%s│%s   🚀 \033[1;37mTermux Developer & AI Suite\033[0m \033[1;36m(ARM64 / aarch64)\033[0m              %s│%s\n' "$CYAN" "$BOLD" "$CYAN" "$NC"
@@ -483,12 +536,12 @@ show_menu_ansi() {
         printf ' %s%s┌── [1] COMPLETE WORKSTATION PIPELINE ────────────────────────────┐%s\n' "$BOLD" "$BLUE" "$NC"
         printf ' %s│%s  %s[1/A]%s  %s▶%s  Run Complete Workstation Setup (Stages 01 -> 06)      %s│%s\n' "$BLUE" "$NC" "$BOLD$YELLOW" "$NC" "$GREEN$BOLD" "$NC" "$BLUE" "$NC"
         printf ' %s└─── Modular Setup Stages ─────────────────────────────────────────┘%s\n' "$BLUE" "$NC"
-        printf '   %s[2/B]%s  📦 Stage 01: Base System, Repositories & Zsh Shell\n' "$BOLD$CYAN" "$NC"
-        printf '   %s[3/E]%s  ⚙️  Stage 02: Build Tools, Compilers & Dev Essentials\n' "$BOLD$CYAN" "$NC"
-        printf '   %s[4/N]%s  🌐 Stage 03: Node.js 24 LTS & Package Managers (ARM64)\n' "$BOLD$CYAN" "$NC"
-        printf '   %s[5/I]%s  🤖 Stage 04: AI Coding Assistant Suite (5 CLIs)\n' "$BOLD$CYAN" "$NC"
-        printf '   %s[6/S]%s  🔑 Stage 05: Private AI Environment & Credentials (~/.ai-env)\n' "$BOLD$CYAN" "$NC"
-        printf '   %s[7/D]%s  📱 Stage 06: Android SDK, NDK (Clang 21) & OpenJDK 21\n\n' "$BOLD$CYAN" "$NC"
+        printf '   %s[2/B]%s %s Stage 01: Base System, Repositories & Zsh Shell\n' "$BOLD$CYAN" "$NC" "$s1_a"
+        printf '   %s[3/E]%s %s Stage 02: Build Tools, Compilers & Dev Essentials\n' "$BOLD$CYAN" "$NC" "$s2_a"
+        printf '   %s[4/N]%s %s Stage 03: Node.js 24 LTS & Package Managers (ARM64)\n' "$BOLD$CYAN" "$NC" "$s3_a"
+        printf '   %s[5/I]%s %s Stage 04: AI Coding Assistant Suite (5 CLIs)\n' "$BOLD$CYAN" "$NC" "$s4_a"
+        printf '   %s[6/S]%s %s Stage 05: Private AI Environment & Credentials (~/.ai-env)\n' "$BOLD$CYAN" "$NC" "$s5_a"
+        printf '   %s[7/D]%s %s Stage 06: Android SDK, NDK (Clang 21) & OpenJDK 21\n\n' "$BOLD$CYAN" "$NC" "$s6_a"
 
         printf ' %s%s┌── [2] APPLICATION COMPILATION & VERIFICATION ───────────────────┐%s\n' "$BOLD" "$GREEN" "$NC"
         printf '   %s[8/K]%s  ⚡ Build Android APK (Sub-Second Zero-Gradle Engine)\n' "$BOLD$GREEN" "$NC"

@@ -33,6 +33,15 @@ die()     { printf '%s[ERROR]%s %s\n' "$RED" "$NC" "$*" >&2; exit 1; }
 # Termux sanity check
 [[ -n "${PREFIX:-}" ]] || die "PREFIX not found. Please run this inside Termux on Android."
 
+NO_LAUNCH=0
+for arg in "$@"; do
+    case "$arg" in
+        --no-launch|--install-only)
+            NO_LAUNCH=1
+            ;;
+    esac
+done
+
 printf '\n%s=======================================================%s\n' "$BOLD$CYAN" "$NC"
 printf '%s   Termux Developer & AI Suite: Bootstrap Installer    %s\n' "$BOLD$GREEN" "$NC"
 printf '%s=======================================================%s\n\n' "$BOLD$CYAN" "$NC"
@@ -119,12 +128,27 @@ command -v termux-fix-shebang >/dev/null 2>&1 && {
     [[ -f "$BIN_DIR/termux-apk-build" ]] && termux-fix-shebang "$BIN_DIR/termux-apk-build" "$BIN_DIR/apk-build" "$LOCAL_BIN/termux-apk-build" "$LOCAL_BIN/apk-build" 2>/dev/null || true
 }
 
+# Install shell completions for Zsh and Bash
+if [[ -d "$SUITE_DIR/completions" ]]; then
+    info "Installing shell completions for Zsh and Bash..."
+    zsh_site="${PREFIX:-/data/data/com.termux/files/usr}/share/zsh/site-functions"
+    bash_comp="${PREFIX:-/data/data/com.termux/files/usr}/etc/bash_completion.d"
+    mkdir -p "$zsh_site" "$bash_comp"
+    [[ -f "$SUITE_DIR/completions/_tsuite" ]] && cp -f "$SUITE_DIR/completions/_tsuite" "$zsh_site/_tsuite" && cp -f "$SUITE_DIR/completions/_tsuite" "$zsh_site/_termux-suite"
+    [[ -f "$SUITE_DIR/completions/_termux-apk-build" ]] && cp -f "$SUITE_DIR/completions/_termux-apk-build" "$zsh_site/_termux-apk-build" && cp -f "$SUITE_DIR/completions/_termux-apk-build" "$zsh_site/_apk-build"
+    [[ -f "$SUITE_DIR/completions/tsuite.bash" ]] && cp -f "$SUITE_DIR/completions/tsuite.bash" "$bash_comp/tsuite"
+fi
+
 success "Global CLI commands installed:"
 printf '  - %s%stermux-suite%s     (opens interactive TUI)\n' "$BOLD$GREEN" "$NC" "$NC"
 printf '  - %s%stsuite%s            (quick alias)\n' "$BOLD$GREEN" "$NC" "$NC"
 printf '  - %s%stermux-apk-build%s  (zero-Gradle instant APK builder)\n' "$BOLD$GREEN" "$NC" "$NC"
 printf '  - %s%sapk-build%s         (quick alias)\n\n' "$BOLD$GREEN" "$NC" "$NC"
 
-# Launch interactive TUI immediately
-info "Launching Termux Suite Interactive TUI..."
-exec "$BIN_DIR/termux-suite" "$@"
+# Launch interactive TUI immediately if running in an interactive terminal and not disabled
+if [[ "$NO_LAUNCH" -eq 0 && -t 0 ]]; then
+    info "Launching Termux Suite Interactive TUI..."
+    exec "$BIN_DIR/termux-suite" "$@"
+fi
+
+

@@ -1,0 +1,21 @@
+#compdef termux-apk-build apk-build
+
+_termux_apk_build() {
+    _arguments \
+        '(-p --project)'{-p,--project}'[Project root directory (auto-detects Gradle layout)]:directory:_files -/' \
+        '(-m --manifest)'{-m,--manifest}'[Path to AndroidManifest.xml]:manifest file:_files -g "*.xml"' \
+        '(-s --src)'{-s,--src}'[Path to Java/Kotlin source directory]:directory:_files -/' \
+        '(-r --res)'{-r,--res}'[Path to Android resources directory]:directory:_files -/' \
+        '(-l --lib)'{-l,--lib}'[Path to native libraries directory]:directory:_files -/' \
+        '(-j --jars)'{-j,--jars}'[Path to JAR file or library directory]:file or directory:_files' \
+        '(-o --output)'{-o,--output}'[Path for output signed APK]:output file:_files -g "*.apk"' \
+        '(-i --install)'{-i,--install}'[Automatically install APK via ADB after compilation]' \
+        '--min-sdk[Minimum SDK version]:version number:' \
+        '--target-sdk[Target SDK version]:version number:' \
+        '(-k --keystore)'{-k,--keystore}'[Path to signing keystore]:keystore file:_files' \
+        '--alias[Keystore key alias]:alias:' \
+        '--pass[Keystore password]:password:' \
+        '(-h --help)'{-h,--help}'[Display command help]'
+}
+
+_termux_apk_build "$@"

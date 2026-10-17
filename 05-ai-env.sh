@@ -93,3 +93,28 @@ printf 'To create a password-encrypted backup before wiping or migrating devices
 printf '  %sgpg --symmetric --cipher-algo AES256 %s%s\n' "$YELLOW" "$ENV_FILE" "$NC"
 printf 'To restore on a new device:\n'
 printf '  %sgpg --decrypt %s.gpg > %s && chmod 600 %s%s\n\n' "$YELLOW" "$ENV_FILE" "$ENV_FILE" "$ENV_FILE" "$NC"
+
+if [[ -t 0 ]]; then
+    printf '%sWould you like to open %s in your editor now? [y/N]: %s' "$BOLD$CYAN" "$ENV_FILE" "$NC"
+    read -r open_choice || open_choice=""
+    if [[ "$open_choice" =~ ^[Yy] ]]; then
+        ed="${EDITOR:-nano}"
+        if ! command -v "$ed" >/dev/null 2>&1; then
+            if command -v nano >/dev/null 2>&1; then
+                ed="nano"
+            elif command -v micro >/dev/null 2>&1; then
+                ed="micro"
+            elif command -v vim >/dev/null 2>&1; then
+                ed="vim"
+            elif command -v vi >/dev/null 2>&1; then
+                ed="vi"
+            fi
+        fi
+        if command -v "$ed" >/dev/null 2>&1; then
+            "$ed" "$ENV_FILE"
+        else
+            info "No visual editor found. Edit $ENV_FILE manually."
+        fi
+    fi
+fi
+

@@ -510,7 +510,7 @@ fi
 
 test_start "ShellCheck linting validation across all repository scripts"
 if command -v shellcheck >/dev/null 2>&1; then
-    if (cd "$SETUP_DIR" && shellcheck ./*.sh bin/*) >/dev/null 2>&1; then
+    if (cd "$SETUP_DIR" && shellcheck ./*.sh bin/* completions/*.bash) >/dev/null 2>&1; then
         test_pass "all shell scripts passed ShellCheck without warnings"
     else
         test_fail "ShellCheck reported lint warnings on repository scripts"
