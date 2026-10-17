@@ -46,22 +46,39 @@ gradle --version
 
 ---
 
-## 3. Minimal Standalone APK Build Pipeline (Zero Gradle Overhead)
+## 3. Fast Standalone APK Build Pipeline (Zero Gradle Overhead)
 
-For lightweight utilities, tests, or learning, you can build a signed APK without the heavy Gradle overhead:
+### Method A: Automated Zero-Gradle Builder (`termux-apk-build`) - Recommended
+`termux-apk-build` executes the entire resource linking, Java compilation, DEX conversion, 16KB zipalign, and cryptographic signing pipeline in **< 1 second**:
 
-### Step 1: Prepare Manifest & Resources
+```bash
+# Auto-detect Android Studio / Gradle project structure:
+termux-apk-build -p /path/to/project -o app-signed.apk
+
+# Or specify custom components directly:
+termux-apk-build -m AndroidManifest.xml -s src/ -r res/ -l lib/ -o app-signed.apk
+```
+
+Features:
+- Sub-second build speed with 0 MB background JVM memory footprint.
+- Full multi-DEX support (`classes*.dex`).
+- Bundles uncompressed native libraries (`.so`) for Android 15+ direct `mmap()`.
+- Enforces strict 16KB page-boundary alignment (`zipalign -P 16 -f 4`).
+- Signs with v1, v2, and v3 APK Signature Schemes.
+
+---
+
+### Method B: Manual Underlying Step-by-Step Pipeline
+For learning or custom pipeline control:
+
 ```bash
 mkdir -p build/{res,src/com/example/app}
 
+# 1. Manifest
 cat > build/AndroidManifest.xml <<'EOF'
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.example.app"
-    android:versionCode="1"
-    android:versionName="1.0">
-    <uses-sdk android:minSdkVersion="26" android:targetSdkVersion="36" />
-    <application android:label="TermuxApp" android:hasCode="true">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.example.app">
+    <application android:label="TermuxApp" android:extractNativeLibs="false">
         <activity android:name=".MainActivity" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -71,74 +88,39 @@ cat > build/AndroidManifest.xml <<'EOF'
     </application>
 </manifest>
 EOF
-```
 
-### Step 2: Compile Resources with AAPT2
-```bash
-aapt2 link \
-    -I "$ANDROID_HOME/platforms/android-36/android.jar" \
+# 2. Compile resources with AAPT2
+aapt2 link -I "$ANDROID_HOME/platforms/android-36/android.jar" \
     --manifest build/AndroidManifest.xml \
     --java build/src \
     -o build/app-unaligned.apk
-```
 
-### Step 3: Compile Java Source
-```bash
-cat > build/src/com/example/app/MainActivity.java <<'EOF'
-package com.example.app;
-import android.app.Activity;
-import android.os.Bundle;
-import android.widget.TextView;
-
-public class MainActivity extends Activity {
-    @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        TextView tv = new TextView(this);
-        tv.setText("Hello from Termux Native Android!");
-        setContentView(tv);
-    }
-}
-EOF
-
+# 3. Compile Java source
 javac -cp "$ANDROID_HOME/platforms/android-36/android.jar" \
-    build/src/com/example/app/*.java \
-    -d build/classes
-```
+    build/src/com/example/app/*.java -d build/classes
 
-### Step 4: Convert Bytecode to DEX (`d8`)
-```bash
+# 4. Convert bytecode to Dalvik DEX (d8)
 d8 build/classes/com/example/app/*.class \
     --lib "$ANDROID_HOME/platforms/android-36/android.jar" \
     --output build/
-```
 
-### Step 5: Package DEX into APK
-```bash
-cd build
-zip -u app-unaligned.apk classes.dex
-cd ..
-```
+# 5. Package DEX into APK
+(cd build && zip -uq app-unaligned.apk classes*.dex)
 
-### Step 6: Sign APK with `apksigner`
-```bash
-# Generate a keystore if one doesn't exist
-if [ ! -f build/debug.keystore ]; then
-    keytool -genkey -v -keystore build/debug.keystore \
-        -alias debug -keyalg RSA -keysize 2048 -validity 10000 \
-        -storepass android -keypass android \
-        -dname "CN=Android Debug,O=Android,C=US"
-fi
+# 6. Page-align APK for Android 15/16 (16KB alignment)
+zipalign -P 16 -f 4 build/app-unaligned.apk build/app-aligned.apk
 
-apksigner sign --ks build/debug.keystore \
+# 7. Sign APK with apksigner (must be executed AFTER zipalign!)
+apksigner sign --ks "$HOME/.android/debug.keystore" \
     --ks-key-alias debug \
     --ks-pass pass:android \
     --key-pass pass:android \
     --out build/app-signed.apk \
-    build/app-unaligned.apk
+    build/app-aligned.apk
 
-# Verify signature
-apksigner verify build/app-signed.apk
+# 8. Verify signatures and alignment
+apksigner verify -v build/app-signed.apk
+zipalign -c -P 16 4 build/app-signed.apk
 ```
 
 ---
@@ -182,16 +164,20 @@ ninja -C build
 
 When building existing Gradle projects on Termux:
 
-1. **AAPT2 Maven Override**: Always ensure `android.aapt2FromMavenOverride` is set in `~/.gradle/gradle.properties`:
+1. **AAPT2 Maven Override & Mobile Memory Tuning**: Always ensure `android.aapt2FromMavenOverride` and memory guards are set in `~/.gradle/gradle.properties`:
    ```properties
    android.aapt2FromMavenOverride=/data/data/com.termux/files/usr/opt/android-sdk/build-tools/36.1.0/aapt2
    android.builder.sdkDownload=false
-   org.gradle.jvmargs=-Xmx2048m -XX:+UseG1GC
+   org.gradle.vfs.watch=false
+   org.gradle.parallel=true
+   org.gradle.jvmargs=-Xmx1280m -XX:+UseG1GC -XX:MaxMetaspaceSize=384m
+   org.gradle.daemon.idletimeout=60000
    ```
 2. **Local Properties**: In the project root, ensure `local.properties` specifies paths:
    ```properties
    sdk.dir=/data/data/com.termux/files/usr/opt/android-sdk
    ndk.dir=/data/data/com.termux/files/usr/opt/android-sdk/ndk/29.0.14206865
+   cmake.dir=/data/data/com.termux/files/usr/opt/android-sdk/cmake/4.1.2
    ```
 3. **Run Builds**:
    ```bash
@@ -215,4 +201,20 @@ adb install -r build/app-signed.apk
 
 # View logcat output
 adb logcat -v time *:E
+```
+
+---
+
+## 7. Google Android CLI (`android`)
+
+The official Google Android CLI (`~/.local/bin/android`) is pre-bridged via `termux-glibc`:
+```bash
+# Display SDK info and environment status
+android info
+
+# Generate new Android projects from official templates
+android create
+
+# Inspect project layout and artifacts
+android describe
 ```
