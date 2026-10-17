@@ -160,10 +160,12 @@ if [[ -d "$SUITE_DIR/completions" ]]; then
 fi
 
 success "Global CLI commands installed:"
-printf '  - %s%stermux-suite%s     (opens interactive TUI)\n' "$BOLD$GREEN" "$NC" "$NC"
-printf '  - %s%stsuite%s            (quick alias)\n' "$BOLD$GREEN" "$NC" "$NC"
-printf '  - %s%stermux-apk-build%s  (zero-Gradle instant APK builder)\n' "$BOLD$GREEN" "$NC" "$NC"
-printf '  - %s%sapk-build%s         (quick alias)\n\n' "$BOLD$GREEN" "$NC" "$NC"
+printf '  - %s%stermux-suite%s         (opens interactive TUI)\n' "$BOLD$GREEN" "$NC" "$NC"
+printf '  - %s%stsuite%s                (quick alias)\n' "$BOLD$GREEN" "$NC" "$NC"
+printf '  - %s%stermux-apk-build%s      (zero-Gradle instant APK builder & inspector)\n' "$BOLD$GREEN" "$NC" "$NC"
+printf '  - %s%sapk-build%s             (quick alias)\n' "$BOLD$GREEN" "$NC" "$NC"
+printf '  - %s%stermux-wireless-adb%s  (Android 11+ wireless ADB pairing helper)\n' "$BOLD$GREEN" "$NC" "$NC"
+printf '  - %s%swireless-adb%s         (quick alias)\n\n' "$BOLD$GREEN" "$NC" "$NC"
 
 # Launch interactive TUI immediately if running in an interactive terminal and not disabled
 if [[ "$NO_LAUNCH" -eq 0 && -t 0 ]]; then
