@@ -106,21 +106,24 @@ cp -f "$SUITE_DIR/bin/termux-suite" "$LOCAL_BIN/tsuite"
 if [[ -f "$SUITE_DIR/bin/termux-apk-build" ]]; then
     chmod 755 "$SUITE_DIR/bin/termux-apk-build"
     cp -f "$SUITE_DIR/bin/termux-apk-build" "$BIN_DIR/termux-apk-build"
+    cp -f "$SUITE_DIR/bin/termux-apk-build" "$BIN_DIR/apk-build"
     cp -f "$SUITE_DIR/bin/termux-apk-build" "$LOCAL_BIN/termux-apk-build"
-    chmod 755 "$BIN_DIR/termux-apk-build" "$LOCAL_BIN/termux-apk-build"
+    cp -f "$SUITE_DIR/bin/termux-apk-build" "$LOCAL_BIN/apk-build"
+    chmod 755 "$BIN_DIR/termux-apk-build" "$BIN_DIR/apk-build" "$LOCAL_BIN/termux-apk-build" "$LOCAL_BIN/apk-build"
 fi
 
 chmod 755 "$BIN_DIR/termux-suite" "$BIN_DIR/tsuite" "$LOCAL_BIN/termux-suite" "$LOCAL_BIN/tsuite"
 
 command -v termux-fix-shebang >/dev/null 2>&1 && {
     termux-fix-shebang "$BIN_DIR/termux-suite" "$BIN_DIR/tsuite" "$LOCAL_BIN/termux-suite" "$LOCAL_BIN/tsuite" 2>/dev/null || true
-    [[ -f "$BIN_DIR/termux-apk-build" ]] && termux-fix-shebang "$BIN_DIR/termux-apk-build" "$LOCAL_BIN/termux-apk-build" 2>/dev/null || true
+    [[ -f "$BIN_DIR/termux-apk-build" ]] && termux-fix-shebang "$BIN_DIR/termux-apk-build" "$BIN_DIR/apk-build" "$LOCAL_BIN/termux-apk-build" "$LOCAL_BIN/apk-build" 2>/dev/null || true
 }
 
 success "Global CLI commands installed:"
 printf '  - %s%stermux-suite%s     (opens interactive TUI)\n' "$BOLD$GREEN" "$NC" "$NC"
 printf '  - %s%stsuite%s            (quick alias)\n' "$BOLD$GREEN" "$NC" "$NC"
-printf '  - %s%stermux-apk-build%s  (zero-Gradle instant APK builder)\n\n' "$BOLD$GREEN" "$NC" "$NC"
+printf '  - %s%stermux-apk-build%s  (zero-Gradle instant APK builder)\n' "$BOLD$GREEN" "$NC" "$NC"
+printf '  - %s%sapk-build%s         (quick alias)\n\n' "$BOLD$GREEN" "$NC" "$NC"
 
 # Launch interactive TUI immediately
 info "Launching Termux Suite Interactive TUI..."
