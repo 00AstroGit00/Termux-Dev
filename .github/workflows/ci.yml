@@ -42,6 +42,7 @@ jobs:
           echo "Validating CLI help outputs..."
           bash setup.sh --help >/dev/null
           bash bin/termux-apk-build --help >/dev/null
+          bash bin/termux-wireless-adb --help >/dev/null
 
   integrity-check:
     name: Repository Integrity

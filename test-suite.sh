@@ -7,6 +7,8 @@
 set -Eeuo pipefail
 
 SETUP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PREFIX="${PREFIX:-/data/data/com.termux/files/usr}"
+export PREFIX
 TMP_TEST_DIR="${TMPDIR:-$PREFIX/tmp}/bulletproof-test-$$"
 mkdir -p "$TMP_TEST_DIR"
 trap 'rm -rf "$TMP_TEST_DIR"' EXIT INT TERM

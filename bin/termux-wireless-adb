@@ -8,6 +8,8 @@ set -Eeuo pipefail
 
 # Ensure environment
 [[ -f "$HOME/.android-env" ]] && source "$HOME/.android-env"
+PREFIX="${PREFIX:-/data/data/com.termux/files/usr}"
+export PREFIX
 export PATH="$HOME/.local/bin:$HOME/.npm-global/bin:$HOME/bin:$PREFIX/bin:$PATH"
 
 SESSION_FILE="$HOME/.termux-adb-session"

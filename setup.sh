@@ -13,6 +13,8 @@
 set -Eeuo pipefail
 
 SETUP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PREFIX="${PREFIX:-/data/data/com.termux/files/usr}"
+export PREFIX
 
 # Enforce canonical PATH ordering
 export PATH="$HOME/.local/bin:$HOME/.npm-global/bin:$HOME/bin:$PREFIX/bin:$PATH"
