@@ -151,7 +151,12 @@ tsuite
  │   7  Stage 06: Android SDK, NDK & TermuxVoid Toolchains            │
  │   8  Verify All Installed Tools                                    │
  │   9  Run Ruthless Stress & Verification Test Suite                 │
- │  10  Clean Locks & Temporary Files                                 │
+ │  10  Clean Package Cache, Temp Files & Locks                       │
+ │  11  Prune Unused NDK Sysroots (Save ~600MB)                       │
+ │  12  Tune Device: Disable Phantom Process Killer                   │
+ │  13  Install Local Git Pre-Commit Hook                             │
+ │  14  System Doctor: Health & Stability Diagnostics                 │
+ │  15  Configure Developer Extra-Keys (Fast Coding Bar)              │
  │   0  Exit                                                          │
  │                                                                    │
  ├────────────────────────────────────────────────────────────────────┤
@@ -166,18 +171,22 @@ tsuite
 You can also run specific tasks directly without the TUI:
 
 ```bash
-./setup.sh --all         # Execute all stages (01 -> 06) sequentially
-./setup.sh --base        # Stage 01: Base system, repos & Zsh
-./setup.sh --essentials  # Stage 02: Compilers, tools & dev utilities
-./setup.sh --node        # Stage 03: Node.js 24 LTS & package managers
-./setup.sh --ai          # Stage 04: AI CLI Suite provisioning
-./setup.sh --ai-env      # Stage 05: Setup private ~/.ai-env template
-./setup.sh --android     # Stage 06: Android SDK, NDK & TermuxVoid setup
-./setup.sh --verify      # Inspect status of all installed tools
-./setup.sh --test        # Run ruthless 26-point stress & verification suite
-./setup.sh --prune-ndk   # Prune unused NDK sysroots (reclaims ~200-600MB)
-./setup.sh --clean       # Remove temporary locks and cache files
-./setup.sh --help        # Display usage information
+./setup.sh --all            # Execute all stages (01 -> 06) sequentially
+./setup.sh --base           # Stage 01: Base system, repos & Zsh
+./setup.sh --essentials     # Stage 02: Compilers, tools & dev utilities
+./setup.sh --node           # Stage 03: Node.js 24 LTS & package managers
+./setup.sh --ai             # Stage 04: AI CLI Suite provisioning
+./setup.sh --ai-env         # Stage 05: Setup private ~/.ai-env template
+./setup.sh --android        # Stage 06: Android SDK, NDK & TermuxVoid setup
+./setup.sh --verify         # Inspect status of all installed tools
+./setup.sh --doctor         # Run Termux system health & environment diagnostics
+./setup.sh --test           # Run ruthless 30-point stress & verification suite
+./setup.sh --prune-ndk      # Prune unused NDK sysroots (reclaims ~600MB)
+./setup.sh --tune-device    # Disable Phantom Process Killer (root or ADB guidance)
+./setup.sh --tune-keys      # Configure enhanced dual-row developer extra-keys layout
+./setup.sh --install-hooks  # Install local Git pre-commit verification hook
+./setup.sh --clean          # Remove locks, temp files, and apt package archives
+./setup.sh --help           # Display usage information
 ```
 
 ---

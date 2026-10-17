@@ -165,6 +165,62 @@ doctor_system() {
         printf '  Order: %sNon-canonical PATH detected%s\n' "$YELLOW" "$NC"
     fi
     printf '\n'
+
+    # Keyboard Extra-Keys Layout
+    printf '%s[Keyboard & Terminal Configuration]%s\n' "$BOLD$YELLOW" "$NC"
+    if [[ -f "$HOME/.termux/termux.properties" ]] && grep -qF "extra-keys" "$HOME/.termux/termux.properties"; then
+        printf '  Extra keys: %sConfigured in ~/.termux/termux.properties%s\n' "$GREEN" "$NC"
+    else
+        printf '  Extra keys: %sDefault (run setup.sh --tune-keys to enhance)%s\n' "$YELLOW" "$NC"
+    fi
+    printf '\n'
+}
+
+tune_extra_keys() {
+    printf '\n%s=== Termux Developer Extra-Keys & Keyboard Layout ===%s\n\n' "$BOLD$CYAN" "$NC"
+    local prop_dir="$HOME/.termux"
+    local prop_file="$prop_dir/termux.properties"
+    mkdir -p "$prop_dir"
+
+    if [[ -f "$prop_file" ]]; then
+        local stamp
+        stamp="$(date +%s)"
+        cp -p "$prop_file" "$prop_file.bak.$stamp"
+        info "Existing termux.properties backed up to $prop_file.bak.$stamp"
+    fi
+
+    cat > "$prop_file" <<'PROP_EOF'
+### Termux Developer Suite: Enhanced Extra-Keys Layout
+extra-keys = [ \
+  [ \
+    {key: 'ESC', popup: 'PASTE'}, \
+    {key: '/', popup: 'BACKSLASH'}, \
+    {key: '-', popup: '|'}, \
+    'CTRL', \
+    {key: 'UP', display: '▲'}, \
+    'ALT', \
+    {key: 'PGUP', popup: '$'}, \
+    {key: KEYBOARD, popup: {macro: "CTRL d", display: '⌧'}} \
+  ], \
+  [ \
+    {key: 'HOME', display: '⇤'}, \
+    'END', \
+    'TAB', \
+    {key: 'LEFT', display: '◀'}, \
+    {key: 'DOWN', display: '▼'}, \
+    {key: 'RIGHT', display: '▶'}, \
+    {key: 'PGDN', popup: '~'}, \
+    'DEL' \
+  ] \
+]
+terminal-transcript-rows = 5000
+terminal-cursor-style = bar
+PROP_EOF
+
+    if command -v termux-reload-settings >/dev/null 2>&1; then
+        termux-reload-settings 2>/dev/null || true
+    fi
+    success "Developer extra-keys layout installed into $prop_file and reloaded."
 }
 
 run_stage() {
@@ -272,6 +328,7 @@ show_dialog_tui() {
             "12" "Tune Device: Disable Phantom Process Killer" \
             "13" "Install Local Git Pre-Commit Hook" \
             "14" "System Doctor: Health & Stability Diagnostics" \
+            "15" "Configure Developer Extra-Keys (Fast Coding Bar)" \
             "0" "Exit" \
             2>&1 >/dev/tty) || break
 
@@ -299,6 +356,7 @@ show_dialog_tui() {
             12) tune_device ;;
             13) install_git_hooks ;;
             14) doctor_system ;;
+            15) tune_extra_keys ;;
             0) break ;;
         esac
 
@@ -332,9 +390,10 @@ show_menu() {
     printf ' 12) Tune Device: Disable Phantom Process Killer\n'
     printf ' 13) Install Local Git Pre-Commit Hook\n'
     printf ' 14) System Doctor: Health & Stability Diagnostics\n'
+    printf ' 15) Configure Developer Extra-Keys (Fast Coding Bar)\n'
     printf '  0) Exit\n\n'
 
-    read -rp "Select an option [0-14]: " choice
+    read -rp "Select an option [0-15]: " choice
     case "$choice" in
         1)
             run_stage "01-termux-base.sh" "Stage 01: Termux Base Setup"
@@ -358,6 +417,7 @@ show_menu() {
         12) tune_device ;;
         13) install_git_hooks ;;
         14) doctor_system ;;
+        15) tune_extra_keys ;;
         0|q|Q)
             info "Exiting."
             exit 0
@@ -416,6 +476,9 @@ if [[ $# -gt 0 ]]; then
         --tune-device)
             tune_device
             ;;
+        --tune-keys)
+            tune_extra_keys
+            ;;
         --install-hooks)
             install_git_hooks
             ;;
@@ -434,6 +497,7 @@ if [[ $# -gt 0 ]]; then
             printf '  --test           Run ruthless stress & verification test suite\n'
             printf '  --prune-ndk      Prune unused NDK sysroots (saves ~600MB storage)\n'
             printf '  --tune-device    Disable Phantom Process Killer (root or ADB guidance)\n'
+            printf '  --tune-keys      Configure enhanced dual-row developer extra-keys layout\n'
             printf '  --install-hooks  Install local Git pre-commit verification hook\n'
             printf '  --clean          Remove locks, temp files, and apt package archives\n'
             printf '  --help           Display this help message\n'

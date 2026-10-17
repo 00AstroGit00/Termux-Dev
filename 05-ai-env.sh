@@ -85,3 +85,10 @@ printf '   Run: %sgemini%s (Interactive prompt) or set %sGEMINI_API_KEY%s in %s~
 
 printf '5. %sGitHub Copilot CLI%s:\n' "$BOLD" "$NC"
 printf '   Run: %scopilot%s and authenticate with GitHub via browser/device code\n\n' "$YELLOW" "$NC"
+
+printf '%s=== Credential Security & Encrypted Backup ===%s\n\n' "$BOLD$CYAN" "$NC"
+printf 'Your credentials in %s are protected with 0600 permissions.\n' "$ENV_FILE"
+printf 'To create a password-encrypted backup before wiping or migrating devices:\n'
+printf '  %sgpg --symmetric --cipher-algo AES256 %s%s\n' "$YELLOW" "$ENV_FILE" "$NC"
+printf 'To restore on a new device:\n'
+printf '  %sgpg --decrypt %s.gpg > %s && chmod 600 %s%s\n\n' "$YELLOW" "$ENV_FILE" "$ENV_FILE" "$ENV_FILE" "$NC"
