@@ -22,7 +22,7 @@ jobs:
           severity: warning
 
   syntax-check:
-    name: Bash Syntax Validation
+    name: Bash Syntax & CLI Validation
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -30,12 +30,18 @@ jobs:
 
       - name: Validate Bash Syntax
         run: |
-          for script in *.sh bin/*; do
+          for script in ./*.sh bin/*; do
             if [ -f "$script" ]; then
               echo "Validating syntax of $script..."
               bash -n "$script"
             fi
           done
+
+      - name: Validate CLI Help Interfaces
+        run: |
+          echo "Validating CLI help outputs..."
+          bash setup.sh --help >/dev/null
+          bash bin/termux-apk-build --help >/dev/null
 
   integrity-check:
     name: Repository Integrity
@@ -46,7 +52,7 @@ jobs:
 
       - name: Check Executable Permissions
         run: |
-          for script in *.sh bin/*; do
+          for script in ./*.sh bin/*; do
             if [ -f "$script" ] && [ ! -x "$script" ]; then
               echo "Error: $script is not marked executable"
               exit 1
