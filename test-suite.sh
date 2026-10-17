@@ -173,7 +173,7 @@ fi
 
 test_start "pnpm ARM64 compatibility execution"
 if command -v pnpm >/dev/null 2>&1; then
-    PNPM_VER="$(pnpm --version 2>&1 || true)"
+    PNPM_VER="$(pnpm --version 2>&1 | tail -n 1 | tr -d '[:space:]' || true)"
     if [[ "$PNPM_VER" =~ ^10\. ]]; then
         test_pass "pnpm pinned version: $PNPM_VER"
     else

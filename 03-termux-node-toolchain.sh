@@ -205,19 +205,23 @@ fi
 log "Installing pnpm ${PNPM_VERSION} into ${USER_PREFIX}..."
 npm install --global --prefix "$USER_PREFIX" "pnpm@${PNPM_VERSION}"
 
+# Explicitly ensure pnpm points to the Node-based CJS launcher for ARM64 Bionic stability
+if [[ -f "$USER_PREFIX/lib/node_modules/pnpm/bin/pnpm.cjs" ]]; then
+    ln -sf "$USER_PREFIX/lib/node_modules/pnpm/bin/pnpm.cjs" "$BIN_DIR/pnpm"
+fi
+
+# Patch executable shebangs for native Termux execution immediately before calling binaries
+command -v termux-fix-shebang >/dev/null 2>&1 && termux-fix-shebang "$BIN_DIR"/* 2>/dev/null || true
 hash -r 2>/dev/null || true
 
 command -v pnpm >/dev/null 2>&1 || die "pnpm executable was not created."
-INSTALLED_PNPM="$(pnpm --version)"
+INSTALLED_PNPM="$(pnpm --version 2>/dev/null | tail -n 1 | tr -d '[:space:]')"
 
 if [[ "$INSTALLED_PNPM" != "$PNPM_VERSION" ]]; then
     die "pnpm version mismatch: requested ${PNPM_VERSION}, got ${INSTALLED_PNPM}"
 fi
 
 log "pnpm ${INSTALLED_PNPM} installed successfully."
-
-# Patch executable shebangs for native Termux execution
-command -v termux-fix-shebang >/dev/null 2>&1 && termux-fix-shebang "$BIN_DIR"/* 2>/dev/null || true
 
 # -------------------------
 # Verification
